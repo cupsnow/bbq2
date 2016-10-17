@@ -1,0 +1,124 @@
+#!/bin/sh
+
+COLOR="\033[0m"
+COLOR_RED="\033[31m"
+COLOR_GREEN="\033[32m"
+
+ECHO="echo -e"
+
+SUPPORT_MODEL="pi2 bbb"
+
+# assume $1 is level when $# more then 1
+log_msg() {
+  level=
+  if [ $# -gt 1 ]; then
+    level=$1
+    shift
+  fi
+  case "$level" in
+  1)
+    $ECHO "${COLOR_RED}ERROR${COLOR}: $*"
+    ;;
+  *)
+    $ECHO "${COLOR_GREEN}$*${COLOR}"
+    ;;
+  esac
+}
+
+log_error() {
+  log_msg 1 "$*"
+}
+
+log_debug() {
+  log_msg "$*"
+}
+
+show_help() {
+cat <<EOF
+SYNOPSIS
+  $1 [OPTIONS]
+
+OPTIONS
+  -h, --help   Show help
+  -m, --model=MODEL
+               Set model name[${SUPPORT_MODEL}]
+      --build-number=NUMBER
+               Set build number[N/A]
+EOF
+}
+
+# check if $1 equal one of the others
+check_within_list() {
+  iter=$1
+  shift
+  for i in "$@"; do
+    [ "$iter" = "$i" ] && return 0
+  done
+  return 1
+}
+
+check_error() {
+  [ "$?" = "0" ] && return 0
+  log_error "$*"
+  exit 1
+}
+
+OPT_SAVED="$*"
+
+OPT_PARSED=`getopt -l "help,model:,build-number:," "hm:" $@`
+r=$?
+if [ ! "$r" = "0" ]; then
+  show_help $0
+  exit $r
+fi
+
+# re-assign positional parameter
+eval set -- "$OPT_PARSED"
+while true; do
+  case "$1" in
+  -h|--help)
+    show_help $0
+    exit 1
+    ;;
+  -m|--model)
+    MODEL=$2
+    shift
+    ;;
+  --build-number)
+    BUILD_NUMBER=$2
+    shift
+    ;;
+  --)
+    shift
+    break
+    ;;
+  esac
+  shift
+done
+
+# validate and prepare configuration
+check_within_list $MODEL $SUPPORT_MODEL
+check_error "Invalid model: '$MODEL'. Choose in [$SUPPORT_MODEL]"
+
+# apply configuration
+cp project-config-${MODEL}.h project-config.h
+check_error "Missing project-config-${MODEL}.h"
+if [ -n "$BUILD_NUMBER" ]; then
+  sed -i -e "s/^\s*\(#\s*define\)\s\s*BUILD_NUMBER.*/\1 BUILD_NUMBER $BUILD_NUMBER/g" \
+      project-config.h
+  check_error "Cannot set BUILD_NUMBER to $BUILD_NUMBER"
+fi
+
+# prepare build essential
+make tool
+check_error "Failed to prepare tool for building"
+
+log_debug "Configuration summary:"
+log_debug "  Model: ${MODEL}"
+log_debug "  BUILD_NUMBER: ${BUILD_NUMBER}"
+
+$ECHO "$0 $OPT_SAVED" > config.status
+chmod +x config.status
+
+exit 0
+

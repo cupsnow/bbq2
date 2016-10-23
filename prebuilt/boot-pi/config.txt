@@ -1,0 +1,269 @@
+#------------------------------------
+# https://raw.githubusercontent.com/Evilpaul/RPi-config/master/config.txt
+#
+
+################################################################################
+##  Camera Settings
+################################################################################
+
+## start_x
+##     Set to "1" to enable the camera module.
+##
+##     Enabling the camera requires gpu_mem option to be specified with a value
+##     of at least 128.
+##
+##     Default 0
+##
+start_x=1
+
+## disable_camera_led
+##     Turn off the red camera led when recording video or taking a still
+##     picture.
+##
+##     Value    Description
+##     -------------------------------------------------------------------------
+##     0        LED enabled (Default)
+##     1        LED disabled
+##
+#disable_camera_led=1
+
+################################################################################
+##  Memory Settings
+################################################################################
+
+## gpu_mem
+##     GPU memory allocation in MB for all board revisions.
+##
+##     Default 64
+##
+gpu_mem=128
+
+################################################################################
+##  CMA - Dynamic Memory Split
+##
+##  CMA enables dynamic management of the ARM and GPU memory split at runtime.
+##
+##  The following options need to be in cmdline.txt for CMA to work:
+##    coherent_pool=6M smsc95xx.turbo_mode=N
+##
+################################################################################
+
+## cma_lwm
+##     When GPU has less than cma_lwm (low water mark) memory available it
+##     will request some from ARM.
+##
+#cma_lwm=16
+
+## cma_hwm
+##     When GPU has more than cma_hwm (high water mark) memory available it
+##     will release some to ARM.
+##
+#cma_hwm=32
+
+################################################################################
+##  Boot Option Settings
+################################################################################
+
+## cmdline (string)
+##     Command line parameters. Can be used instead of cmdline.txt file
+##
+cmdline=dma.dmachans=0x7f35 bcm2708_fb.fbwidth=656 bcm2708_fb.fbheight=416 bcm2709.boardrev=0xa21041 bcm2709.serial=0x1eee8bfa smsc95xx.macaddr=B8:27:EB:EE:8B:FA bcm2708_fb.fbswap=1 bcm2709.disk_led_gpio=47 bcm2709.disk_led_active_low=0 sdhci-bcm2708.emmc_clock_freq=250000000 vc_mem.mem_base=0x3dc00000 vc_mem.mem_size=0x3f000000  console=ttyAMA0,115200 kgdboc=ttyAMA0,115200 console=tty1 root=/dev/mmcblk0p2 rootfstype=ext4 cma=256M@512M rootwait
+
+## kernel (string)
+##     Alternative name to use when loading kernel.
+##
+#kernel=""
+
+## kernel_address
+##     Address to load kernel.img file at
+##
+#kernel_address=0x00000000
+
+## ramfsfile (string)
+##     ramfs file to load
+##
+#ramfsfile=""
+
+## ramfsaddr
+##     Address to load ramfs file at
+##
+#ramfsaddr=0x00000000
+
+## initramfs (string address)
+##     ramfs file and address to load it at (it's like ramfsfile+ramfsaddr in
+##     one option).
+##
+##     NOTE: this option uses different syntax than all other options - you
+##           should not use "=" character here.
+##
+#initramfs initramf.gz 0x00800000
+
+## device_tree_address
+##     Address to load device_tree at
+##
+#device_tree_address=0x00000000
+
+## disable_splash
+##     Avoids the rainbow splash screen on boot.
+##
+##     Value    Description
+##     -------------------------------------------------------------------------
+##     0        Splash screen enabled (Default)
+##     1        Splash screen disabled
+##
+#disable_splash=1
+
+
+################################################################################
+##  Overclocking Settings
+##
+##  ARM, SDRAM and GPU each have their own PLLs and can have unrelated
+##  frequencies.
+##
+##  The GPU core, h264, v3d and isp share a PLL, so need to have related
+##  frequencies.
+##  pll_freq = floor(2400 / (2 * core_freq)) * (2 * core_freq)
+##  gpu_freq = pll_freq / [even number]
+##
+##  The effective gpu_freq is automatically rounded to nearest even integer, so
+##  asking for core_freq = 500 and gpu_freq = 300 will result in divisor of
+##  2000/300 = 6.666 => 6 and so 333.33MHz.
+##
+##
+##  Standard Profiles:
+##                  arm_freq    core_freq    sdram_freq    over_voltage
+##     -------------------------------------------------------------------------
+##     None         700         250          400           0
+##     Modest       800         300          400           0
+##     Medium       900         333          450           2
+##     High         950         450          450           6
+##     Turbo        1000        500          500           6
+##
+################################################################################
+
+## force_turbo
+##     Control the kernel "ondemand" governor. It has no effect if no overclock
+##     settings are specified.
+##     May set warrany bit.
+##
+##     Value    Description
+##     -------------------------------------------------------------------------
+##     0        Enable dynamic clocks and voltage for the ARM core, GPU core and
+##              SDRAM (Default).
+##              Overclocking of h264_freq, v3d_freq and isp_freq is ignored.
+##     1        Disable dynamic clocks and voltage for the ARM core, GPU core
+##              and SDRAM.
+##              Overclocking of h264_freq, v3d_freq and isp_freq is allowed.
+##
+#force_turbo=0
+
+## initial_turbo
+##     Enables turbo mode from boot for the given value in seconds (up to 60)
+##     or until cpufreq sets a frequency. Can help with sdcard corruption if
+##     overclocked.
+##
+##     Default 0
+##
+#initial_turbo=0
+
+## temp_limit
+##     Overheat protection. Sets clocks and voltages to default when the SoC
+##     reaches this Celsius value.
+##     Setting this higher than default voids warranty.
+##
+##     Default 85
+##
+#temp_limit=85
+
+## arm_freq
+##     Frequency of ARM in MHz.
+##
+##     Default 700.
+##
+#arm_freq=700
+
+## arm_freq_min
+##     Minimum frequency of ARM in MHz (used for dynamic clocking).
+##
+##     Default 700.
+##
+#arm_freq_min=700
+
+## gpu_freq
+##     Sets core_freq, h264_freq, isp_freq, v3d_freq together.
+##
+##     Default 250.
+##
+#gpu_freq=250
+
+## core_freq
+##     Frequency of GPU processor core in MHz. It has an impact on ARM
+##     performance since it drives L2 cache.
+##
+##     Default 250.
+##
+#core_freq=250
+
+## core_freq_min
+##     Minimum frequency of GPU processor core in MHz (used for dynamic
+##     clocking). It has an impact on ARM performance since it drives L2 cache.
+##
+##     Default 250.
+##
+#core_freq_min=250
+
+## h264_freq
+##     Frequency of hardware video block in MHz.
+##
+##     Default 250.
+##
+#h264_freq=250
+
+## isp_freq
+##     Frequency of image sensor pipeline block in MHz.
+##
+##     Default 250.
+##
+#isp_freq=250
+
+## v3d_freq
+##     Frequency of 3D block in MHz.
+##
+##     Default 250.
+##
+#v3d_freq=250
+
+## sdram_freq
+##     Frequency of SDRAM in MHz.
+##
+##     Default 400.
+##
+#sdram_freq=400
+
+## sdram_freq_min
+##     Minimum frequency of SDRAM in MHz (used for dynamic clocking).
+##
+##     Default 400.
+##
+#sdram_freq_min=400
+
+## avoid_pwm_pll
+##     Don't dedicate a pll to PWM audio. This will reduce analogue audio
+##     quality slightly. The spare PLL allows the core_freq to be set
+##     independently from the rest of the gpu allowing more control over
+##     overclocking.
+##
+##     Value    Description
+##     -------------------------------------------------------------------------
+##     0        Linked core_freq (Default)
+##     1        Unlinked core_freq
+##
+#avoid_pwm_pll=1
+
+
+#------------------------------------
+# drm
+#
+# mask_gpu_interrupt0=0x400   # VPU shouldn't handle V3D interrupts
+# avoid_warnings=2            # VPU shouldn't smash our display setup.
+

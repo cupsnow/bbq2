@@ -1,0 +1,34 @@
+#!/bin/sh
+
+. /etc/rc.d/init.d/functions
+
+MODULE_CONF=/etc/module.conf
+
+case "$1" in
+start)
+	grep '^[^#]' $MODULE_CONF | \
+	while read module args; do
+		[ "$module" ] || continue
+		echo -n "Loading kernel module $module ..."
+		modprobe $module $args
+		check_status
+	done
+	;;
+stop)
+	tac $MODULE_CONF | \
+	grep '^[^#]' | \
+	while read module args; do
+		[ "$module" ] || continue
+		echo -n "Unloading kernel module $module ..."
+		rmmod `basename $module .ko` >/dev/null 2>&1
+		check_status
+	done
+	;;
+restart)
+	$0 stop
+	$0 start
+	;;
+*)
+	echo "Usage: $0 {start|stop|restart}"
+	exit 1
+esac

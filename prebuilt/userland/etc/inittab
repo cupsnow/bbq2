@@ -1,0 +1,10 @@
+::sysinit:/etc/rc.d/startup
+
+# ::respawn:/bin/sh
+# ttyO0 for bb
+# ttyO2 for xm
+tty0::askfirst:/sbin/getty -n -l /bin/sh -L 115200 tty0 vt100
+console::respawn:/sbin/getty -n -l /bin/sh -L 115200 console vt100
+
+::ctrlaltdel:/sbin/reboot
+::shutdown:/etc/rc.d/shutdown

@@ -1,0 +1,19 @@
+# Common Routines
+#
+
+# Check status and print
+# OK or FAIL
+#
+check_status()
+{
+  ERRNO=$?
+  echo -e "\033[65G"
+  echo -en "\033[74C["
+  if [ $ERRNO = 0 ]; then
+    echo -en "\033[1;32m OK "
+  else
+    echo -en "\033[1;31mFAIL"
+  fi
+  echo -e "\\033[0;39m]"
+  return $ERRNO
+}

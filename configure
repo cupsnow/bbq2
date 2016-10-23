@@ -101,7 +101,10 @@ check_within_list $MODEL $SUPPORT_MODEL
 check_error "Invalid model: '$MODEL'. Choose in [$SUPPORT_MODEL]"
 
 # apply configuration
-cp project-config-${MODEL}.h project-config.h
+if [ -e project-config-${MODEL}.h ]; then
+  cp project-config-${MODEL}.h project-config.h
+fi
+touch project-config.h
 check_error "Missing project-config-${MODEL}.h"
 if [ -n "$BUILD_NUMBER" ]; then
   sed -i -e "s/^\s*\(#\s*define\)\s\s*BUILD_NUMBER.*/\1 BUILD_NUMBER $BUILD_NUMBER/g" \

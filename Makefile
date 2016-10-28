@@ -30,7 +30,7 @@ PKGCONFIG_ENV=PKG_CONFIG_SYSROOT_DIR=$(DESTDIR) \
     PKG_CONFIG_LIBDIR=$(DESTDIR)/lib/pkgconfig
 
 # android pi2 bbb
-PLATFORM=bbb
+PLATFORM=pi2
 
 ifeq ("$(PLATFORM)","android")
 TOOLCHAIN_PATH=$(ANDROID_TOOLCHAIN_PATH)
@@ -131,19 +131,19 @@ linux_MAKEPARAM=O=$(linux_BUILDDIR) CROSS_COMPILE=$(CROSS_COMPILE) ARCH=arm \
     INSTALL_MOD_PATH=$(DESTDIR) INSTALL_MOD_STRIP=1 \
     INSTALL_HDR_PATH=$(DESTDIR)/usr \
     CONFIG_INITRAMFS_SOURCE=$(CONFIG_INITRAMFS_SOURCE) \
-    KDIR=$(PKGDIR)/linux-4.8.3
+    KDIR=$(PKGDIR)/linux-4.8.4
 ifeq ("$(PLATFORM)","pi2")
 #linux_MAKEPARAM+=LOADADDR=0x0C100000
 linux_MAKEPARAM+=LOADADDR=0x00200000
 else ifeq ("$(PLATFORM)","bbb")
 linux_MAKEPARAM+=LOADADDR=0x80008000
 endif
-linux_MAKE=$(MAKE) $(linux_MAKEPARAM) -C $(PKGDIR)/linux-4.8.3
+linux_MAKE=$(MAKE) $(linux_MAKEPARAM) -C $(PKGDIR)/linux-4.8.4
 
 linux_download:
 	$(MKDIR) $(PKGDIR) && cd $(PKGDIR) && \
-	  wget -N https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.8.3.tar.xz && \
-	  tar -Jxvf linux-4.8.3.tar.xz
+	  wget -N https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.8.4.tar.xz && \
+	  tar -Jxvf linux-4.8.4.tar.xz
 
 linux_distclean:
 	$(RM) $(linux_BUILDDIR)
@@ -157,12 +157,12 @@ endif
 linux_initramfs_SRC?=$(BUILDDIR)/devlist
 linux_initramfs:
 	cd $(linux_BUILDDIR) && \
-	  bash $(PKGDIR)/linux-4.8.3/scripts/gen_initramfs_list.sh \
+	  bash $(PKGDIR)/linux-4.8.4/scripts/gen_initramfs_list.sh \
 	      -o $(DESTDIR)/initramfs.cpio.gz $(linux_initramfs_SRC)
 
 linux: linux_;
 linux%: tool
-	if [ ! -d $(PKGDIR)/linux-4.8.3 ]; then \
+	if [ ! -d $(PKGDIR)/linux-4.8.4 ]; then \
 	  $(MAKE) linux_download; \
 	fi 
 	if [ ! -e $(linux_BUILDDIR)/.config ]; then \
@@ -217,8 +217,8 @@ so1:
 	echo "dir /dev 0755 0 0" >> $@
 	echo "nod /dev/console 0600 0 0 c 5 1" >> $@
 
-initramfs_DIR?=$(PROJDIR)/initramfsroot
-initramfs: tool linux_headers_install $(BUILDDIR)/devlist
+initramfs_DIR?=$(BUILDDIR)/initramfsroot
+initramfs: linux tool linux_headers_install $(BUILDDIR)/devlist
 	$(MAKE) DESTDIR=$(initramfs_DIR) so1 busybox_install
 	$(RSYNC) $(PROJDIR)/prebuilt/common/* $(initramfs_DIR)
 	$(RSYNC) $(PROJDIR)/prebuilt/initramfs/* $(initramfs_DIR)

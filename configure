@@ -63,6 +63,15 @@ check_error() {
   exit 1
 }
 
+# manifest <XML> <XPATH>
+manifest() {
+  xmllint --xpath $2 $1
+}
+
+manifest manifest.xml "//board[@model='pi2']/item[PROJECT_NAM]/text()"
+
+exit 0
+
 OPT_SAVED="$*"
 
 OPT_PARSED=`getopt -l "help,model:,build-number:," "hm:" $@`

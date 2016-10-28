@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest>
+  <board>
+    <config>
+      <project_name>bbq2</project_name>
+    </config>
+  </board>
+  
+  <board model="pi2">
+  </board>
+  
+  <board model="bbb">
+    <config>
+      <initramfs></initramfs>
+    </config>
+  </board>
+</manifest>

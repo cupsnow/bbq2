@@ -1,6 +1,6 @@
 # $Id$
 #------------------------------------
-PROJDIR?=$(abspath $(dir $(firstword $(wildcard $(addsuffix /proj.mk,. ../..)))))
+PROJDIR?=$(abspath $(dir $(firstword $(wildcard $(addsuffix /proj.mk,. .. ../..)))))
 include $(PROJDIR)/proj.mk
 
 JAVA_HOME?=/usr/lib/jvm/java-8-openjdk-amd64
@@ -45,8 +45,9 @@ PLATFORM_CFLAGS=-mcpu=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard
 PLATFORM_LDFLAGS=
 endif
 
-$(info Makefile ... ARM_TOOLCHAIN_PATH: $(ARM_TOOLCHAIN_PATH))
+RT_CMD=chrt -i 0
 
+$(info Makefile ... ARM_TOOLCHAIN_PATH: $(ARM_TOOLCHAIN_PATH))
 
 EXTRA_PATH=$(PROJDIR)/tool/bin $(ANDROID_NDK_PATH) $(TOOLCHAIN_PATH:%=%/bin) \
     $(ANT_PATH:%=%/bin) $(GRADLE_PATH:%=%/bin)
@@ -59,6 +60,8 @@ $(info Makefile ... PATH: $(PATH))
 #------------------------------------
 #
 all: ;
+
+.PHONY: all tool
 
 #------------------------------------
 #
@@ -127,44 +130,55 @@ $(PROJDIR)/tool/bin/mkimage:
 #------------------------------------
 #
 linux_BUILDDIR=$(BUILDDIR)/linux
-linux_MAKEPARAM=O=$(linux_BUILDDIR) CROSS_COMPILE=$(CROSS_COMPILE) ARCH=arm \
+linux_MAKEPARAM=O=$(linux_BUILDDIR) CROSS_COMPILE=$(CROSS_COMPILE) \
     INSTALL_MOD_PATH=$(DESTDIR) INSTALL_MOD_STRIP=1 \
     INSTALL_HDR_PATH=$(DESTDIR)/usr \
     CONFIG_INITRAMFS_SOURCE=$(CONFIG_INITRAMFS_SOURCE) \
-    KDIR=$(PKGDIR)/linux-4.8.4
+    KDIR=$(PKGDIR)/linux
 ifeq ("$(PLATFORM)","pi2")
 #linux_MAKEPARAM+=LOADADDR=0x0C100000
-linux_MAKEPARAM+=LOADADDR=0x00200000
+linux_MAKEPARAM+=ARCH=arm LOADADDR=0x00200000
 else ifeq ("$(PLATFORM)","bbb")
-linux_MAKEPARAM+=LOADADDR=0x80008000
+linux_MAKEPARAM+=ARCH=arm LOADADDR=0x80008000
 endif
-linux_MAKE=$(MAKE) $(linux_MAKEPARAM) -C $(PKGDIR)/linux-4.8.4
+linux_MAKE=$(MAKE) $(linux_MAKEPARAM) -C $(PKGDIR)/linux
 
 linux_download:
-	$(MKDIR) $(PKGDIR) && cd $(PKGDIR) && \
+	$(MKDIR) $(PKGDIR)
+	$(RM) $(PKGDIR)/linux
+ifeq ("$(PLATFORM)","pi2")
+	git clone https://github.com/raspberrypi/linux.git $(PKGDIR)/linux-pi
+	ln -sf linux-pi $(PKGDIR)/linux
+else
+	cd $(PKGDIR) && \
 	  wget -N https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.8.4.tar.xz && \
 	  tar -Jxvf linux-4.8.4.tar.xz
+	ln -sf linux-4.8.4 $(PKGDIR)/linux
+endif
 
 linux_distclean:
 	$(RM) $(linux_BUILDDIR)
 
 linux_makefile:
 	$(MKDIR) $(dir $(linux_BUILDDIR))
-ifneq ("$(strip $(filter pi2 bbb,$(PLATFORM)))","")
-	$(linux_MAKE) multi_v7_defconfig
-endif
+	if [ -f $(PROJDIR)/cfg/linux-multi-v7.config ]; then \
+	  $(CP) $(PROJDIR)/cfg/linux-multi-v7.config $(linux_BUILDDIR)/.config; \
+	else \
+	  $(linux_MAKE) multi_v7_defconfig; \
+	fi
+	yes "" | $(linux_MAKE) oldconfig
 
 linux_initramfs_SRC?=$(BUILDDIR)/devlist
 linux_initramfs:
 	cd $(linux_BUILDDIR) && \
-	  bash $(PKGDIR)/linux-4.8.4/scripts/gen_initramfs_list.sh \
+	  bash $(PKGDIR)/linux/scripts/gen_initramfs_list.sh \
 	      -o $(DESTDIR)/initramfs.cpio.gz $(linux_initramfs_SRC)
 
 linux: linux_;
 linux%: tool
-	if [ ! -d $(PKGDIR)/linux-4.8.4 ]; then \
+	if [ ! -d $(PKGDIR)/linux ]; then \
 	  $(MAKE) linux_download; \
-	fi 
+	fi
 	if [ ! -e $(linux_BUILDDIR)/.config ]; then \
 	  $(MAKE) linux_makefile; \
 	fi
@@ -206,10 +220,16 @@ CLEAN+=busybox
 
 #------------------------------------
 #
+fw-pi_download:
+	$(MKDIR) $(PKGDIR) && cd $(PKGDIR) && \
+	  git clone https://github.com/raspberrypi/firmware.git firmware-pi
+
+#------------------------------------
+#
 so1:
 	$(MAKE) SRCFILE="ld-*.so.* ld-*.so libpthread.so.* libpthread-*.so" \
 	    SRCFILE+="libc.so.* libc-*.so libm.so.* libm-*.so" \
-	    SRCDIR=$(CROSS_COMPILE_PATH)/arm-linux-gnueabihf/libc/lib \
+	    SRCDIR=$(TOOLCHAIN_PATH)/arm-linux-gnueabihf/libc/lib \
 	    DESTDIR=$(DESTDIR)/lib dist-cp 
 
 %/devlist:
@@ -217,19 +237,29 @@ so1:
 	echo "dir /dev 0755 0 0" >> $@
 	echo "nod /dev/console 0600 0 0 c 5 1" >> $@
 
-initramfs_DIR?=$(BUILDDIR)/initramfsroot
-initramfs: linux tool linux_headers_install $(BUILDDIR)/devlist
+initramfs_DIR?=$(BUILDDIR)/rootfs-initramfs
+initramfs: linux_uImage busybox $(BUILDDIR)/devlist
+	$(MAKE) linux_headers_install
 	$(MAKE) DESTDIR=$(initramfs_DIR) so1 busybox_install
 	$(RSYNC) $(PROJDIR)/prebuilt/common/* $(initramfs_DIR)
 	$(RSYNC) $(PROJDIR)/prebuilt/initramfs/* $(initramfs_DIR)
-#	cd $(linux_DIR) && bash scripts/gen_initramfs_list.sh \
-#	    -o $(PROJDIR)/initramfs.cpio.gz \
-#	    $(PROJDIR)/devlist $(initramfs_DIR)
 	$(MAKE) DESTDIR=$(BUILDDIR) \
 	    linux_initramfs_SRC="$(BUILDDIR)/devlist $(initramfs_DIR)" \
 	    linux_initramfs
 	mkimage -n 'bbq2 initramfs' -A arm -O linux -T ramdisk -C gzip \
 	    -d $(BUILDDIR)/initramfs.cpio.gz $(BUILDDIR)/$@
+
+boot_DIR?=$(BUILDDIR)/boot
+boot: linux_uImage
+	$(MAKE) linux_dtbs
+	$(MKDIR) $(boot_DIR)
+ifeq ("$(PLATFORM)","pi2")
+	$(RSYNC) $(PROJDIR)/prebuilt/boot-pi/* $(boot_DIR)
+	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/zImage \
+	    $(boot_DIR)/kernel7.img
+	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/dts/bcm2836-rpi-2-b.dtb \
+	    $(boot_DIR)/bcm2709-rpi-2-b.dtb
+endif
 
 #------------------------------------
 #

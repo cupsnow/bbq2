@@ -1,0 +1,28 @@
+#!/bin/sh
+
+. /etc/rc.d/init.d/functions
+
+for i in proc sys dev; do
+  [ ! -d /$i ] && mkdir -p /$i
+done
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t tmpfs none /dev
+
+echo -n "Start hotplug ..."
+  echo "/sbin/mdev" > /proc/sys/kernel/hotplug
+  mdev -s
+check_status
+
+echo -n "Start pseudo terminal ..."
+  [ ! -d /dev/pts ] && mkdir -p /dev/pts
+  mount -t devpts -o mode=0755 devpts /dev/pts
+check_status
+
+[ ! -c /dev/null ] && mknod -m 0666 /dev/null c 1 3
+[ ! -c /dev/console ] && mknod /dev/console c 5 1
+
+# echo -n "Redirect standard I/O ..."
+#   IODEV=/dev/ttyO0
+#   [ -c /dev/$IODEV ] && exec <$IODEV >$IODEV 2>$IODEV
+# check_status

@@ -237,17 +237,16 @@ so1:
 	echo "dir /dev 0755 0 0" >> $@
 	echo "nod /dev/console 0600 0 0 c 5 1" >> $@
 
-initramfs_DIR?=$(BUILDDIR)/rootfs-initramfs
-initramfs: linux_uImage busybox $(BUILDDIR)/devlist
+rootfs_DIR?=$(BUILDDIR)/rootfs
+rootfs: linux busybox
+	for i in proc sys dev tmp var/run; do \
+	  [ -d $(rootfs_DIR)/$$i ] || $(MKDIR) $(rootfs_DIR)/$$i; \
+	done
 	$(MAKE) linux_headers_install
-	$(MAKE) DESTDIR=$(initramfs_DIR) so1 busybox_install
-	$(RSYNC) $(PROJDIR)/prebuilt/common/* $(initramfs_DIR)
-	$(RSYNC) $(PROJDIR)/prebuilt/initramfs/* $(initramfs_DIR)
-	$(MAKE) DESTDIR=$(BUILDDIR) \
-	    linux_initramfs_SRC="$(BUILDDIR)/devlist $(initramfs_DIR)" \
-	    linux_initramfs
-	mkimage -n 'bbq2 initramfs' -A arm -O linux -T ramdisk -C gzip \
-	    -d $(BUILDDIR)/initramfs.cpio.gz $(BUILDDIR)/$@
+	$(MAKE) DESTDIR=$(rootfs_DIR) so1 busybox_install
+ifeq ("$(PLATFORM)","pi2")
+	$(RSYNC) $(PROJDIR)/prebuilt/rootfs-pi/* $(rootfs_DIR)
+endif
 
 boot_DIR?=$(BUILDDIR)/boot
 boot: linux_uImage

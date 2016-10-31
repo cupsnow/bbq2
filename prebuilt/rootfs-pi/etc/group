@@ -1,0 +1,4 @@
+# man 5 group
+root:x:0:
+messagebus:x:1001:
+lp:x:1002:

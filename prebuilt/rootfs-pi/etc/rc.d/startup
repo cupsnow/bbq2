@@ -1,0 +1,56 @@
+#!/bin/sh
+
+# System Startup Script
+#
+
+. /etc/rc.d/init.d/functions
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
+echo -n "Remount root to writable ..."
+  mount -o remount,rw /
+check_status
+
+# should be done in /init or initramfs
+[ -f /etc/rc.d/init.d/sysinit ] && . /etc/rc.d/init.d/sysinit
+
+for i in /var/run /tmp; do
+  [ ! -d $i ] && mkdir -p $i
+  mount -t tmpfs none $i
+done
+
+for i in /var/run/dbus; do
+  [ ! -d $i ] && mkdir -p $i
+done
+
+echo -n "Setting hostname ..." 
+  [ -f /etc/hostname ] && hostname -F /etc/hostname || hostname bbqLinux
+check_status
+
+echo -n "Setting up interface lo ..."
+  ifconfig lo up 127.0.0.1
+check_status
+
+echo -n "Adding route entry for lo ..."
+  route add -net 127.0.0.0 netmask 255.0.0.0 lo
+check_status
+
+echo -n "Loading modules ..."
+  [ -f /etc/rc.d/init.d/module ] && /etc/rc.d/init.d/module start || true
+check_status
+
+echo "Running start scripts."
+  for i in /etc/rc.d/start/*; do
+    if [ -x $i ]; then
+      $i start
+    fi
+  done
+
+cat <<'BannerEOF'
+ _     _            ___  _ 
+| |__ | |__   __ _ / _ \/ |
+| '_ \| '_ \ / _` | | | | |
+| |_) | |_) | (_| | |_| | |
+|_.__/|_.__/ \__, |\___/|_|
+                |_|        
+BannerEOF

@@ -1,0 +1,36 @@
+#!/bin/sh
+
+. /etc/rc.d/init.d/functions
+
+PIDFILE=/var/run/bluetoothd
+DAEMON=/libexec/bluetooth/bluetoothd
+
+case "$1" in
+start)
+  echo -n "Start Bluetooth Daemon ..."
+  $DAEMON & echo -n "$!" > $PIDFILE
+  check_status
+  ;;
+stop)
+  if [ ! -f $PIDFILE ]; then
+    echo "Missing $PIDFILE ..."
+    exit
+  fi
+  kill -0 `cat $PIDFILE` &> /dev/null
+  if [ ! "$?" = "0" ]; then
+    echo "Not running for `cat $PIDFILE`($PIDFILE) ..."
+    exit
+  fi
+  echo -n "Kill bluetooth daemon ..."
+  kill `cat $PIDFILE`
+  check_status
+  rm -rf $PIDFILE
+  ;;
+restart)
+  $0 stop
+  $0 start
+  ;;
+*)
+  echo "Usage: $0 {start|stop|restart}"
+  exit 1
+esac

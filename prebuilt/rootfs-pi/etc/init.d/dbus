@@ -1,0 +1,33 @@
+#!/bin/sh
+
+. /etc/rc.d/init.d/functions
+
+case "$1" in
+start)
+  echo -n "Start D-Bus daemon system ..."
+  dbus-daemon --system
+  check_status
+  ;;
+stop)
+  if [ ! -f /var/run/dbus/pid ]; then
+    echo "Missing /var/run/dbus/pid ..."
+    exit
+  fi
+  kill -0 `cat /var/run/dbus/pid` &> /dev/null
+  if [ ! "$?" = "0" ]; then
+    echo "Not running for `cat /var/run/dbus/pid`(/var/run/dbus/pid) ..."
+    exit
+  fi
+  echo -n "Kill D-Bus daemon ..."
+  kill `cat /var/run/dbus/pid`
+  check_status
+  rm -rf /var/run/dbus/*
+  ;;
+restart)
+  $0 stop
+  $0 start
+  ;;
+*)
+  echo "Usage: $0 {start|stop|restart}"
+  exit 1
+esac

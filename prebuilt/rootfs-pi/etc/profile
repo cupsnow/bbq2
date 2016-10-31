@@ -1,0 +1,5 @@
+PATH=/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin
+[ -f /etc/TZ ] && TZ=`/etc/TZ`
+
+export PATH
+export TZ

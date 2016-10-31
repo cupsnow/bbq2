@@ -238,12 +238,12 @@ so1:
 	echo "nod /dev/console 0600 0 0 c 5 1" >> $@
 
 rootfs_DIR?=$(BUILDDIR)/rootfs
-rootfs: linux busybox
+rootfs: linux linux_modules busybox
 	for i in proc sys dev tmp var/run; do \
 	  [ -d $(rootfs_DIR)/$$i ] || $(MKDIR) $(rootfs_DIR)/$$i; \
 	done
 	$(MAKE) linux_headers_install
-	$(MAKE) DESTDIR=$(rootfs_DIR) so1 busybox_install
+	$(MAKE) DESTDIR=$(rootfs_DIR) so1 $(addsuffix _install,linux_modules busybox)
 ifeq ("$(PLATFORM)","pi2")
 	$(RSYNC) $(PROJDIR)/prebuilt/rootfs-pi/* $(rootfs_DIR)
 endif

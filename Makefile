@@ -30,7 +30,7 @@ PKGCONFIG_ENV=PKG_CONFIG_SYSROOT_DIR=$(DESTDIR) \
     PKG_CONFIG_LIBDIR=$(DESTDIR)/lib/pkgconfig
 
 # android pi2 bbb
-PLATFORM=pi2
+PLATFORM=bbb
 
 ifeq ("$(PLATFORM)","android")
 TOOLCHAIN_PATH=$(ANDROID_TOOLCHAIN_PATH)
@@ -146,15 +146,15 @@ linux_MAKE=$(MAKE) $(linux_MAKEPARAM) -C $(PKGDIR)/linux
 linux_download:
 	$(MKDIR) $(PKGDIR)
 	$(RM) $(PKGDIR)/linux
-ifeq ("$(PLATFORM)","pi2")
-	git clone https://github.com/raspberrypi/linux.git $(PKGDIR)/linux-pi
-	ln -sf linux-pi $(PKGDIR)/linux
-else
+#ifeq ("$(PLATFORM)","pi2")
+#	git clone https://github.com/raspberrypi/linux.git $(PKGDIR)/linux-pi
+#	ln -sf linux-pi $(PKGDIR)/linux
+#else
 	cd $(PKGDIR) && \
 	  wget -N https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.8.4.tar.xz && \
 	  tar -Jxvf linux-4.8.4.tar.xz
 	ln -sf linux-4.8.4 $(PKGDIR)/linux
-endif
+#endif
 
 linux_distclean:
 	$(RM) $(linux_BUILDDIR)
@@ -248,9 +248,20 @@ ifeq ("$(PLATFORM)","pi2")
 	$(RSYNC) $(PROJDIR)/prebuilt/rootfs-pi/* $(rootfs_DIR)
 endif
 
+initramfs_DIR?=$(BUILDDIR)/initrootfs
+initramfs: $(BUILDDIR)/devlist linux
+	$(MAKE) linux_headers_install
+	$(MAKE) busybox
+	$(MAKE) DESTDIR=$(initramfs_DIR) so1 busybox_install
+	$(RSYNC) $(PROJDIR)/prebuilt/common/* $(initramfs_DIR)
+	$(RSYNC) $(PROJDIR)/prebuilt/initramfs/* $(initramfs_DIR)
+	$(MAKE) linux_initramfs_SRC="$(BUILDDIR)/devlist $(initramfs_DIR)" \
+	    DESTDIR=$(BUILDDIR) linux_initramfs
+	mkimage -n 'bbq2 initramfs' -A arm -O linux -T ramdisk -C gzip \
+	    -d $(BUILDDIR)/initramfs.cpio.gz $(BUILDDIR)/$@
+
 boot_DIR?=$(BUILDDIR)/boot
-boot: linux_uImage
-	$(MAKE) linux_dtbs
+boot: linux_uImage linux_dtbs
 	$(MKDIR) $(boot_DIR)
 ifeq ("$(PLATFORM)","pi2")
 	$(RSYNC) $(PROJDIR)/prebuilt/boot-pi/* $(boot_DIR)
@@ -258,6 +269,15 @@ ifeq ("$(PLATFORM)","pi2")
 	    $(boot_DIR)/kernel7.img
 	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/dts/bcm2836-rpi-2-b.dtb \
 	    $(boot_DIR)/bcm2709-rpi-2-b.dtb
+else ifeq ("$(PLATFORM)","bbb")
+	$(MAKE) initramfs
+	$(RSYNC) $(BUILDDIR)/initramfs $(boot_DIR)/
+	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/uImage \
+	    $(boot_DIR)/
+	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/dts/am335x-boneblack.dtb \
+	    $(boot_DIR)/dtb
+	mkimage -C none -A arm -T script -d $(PROJDIR)/cfg/bbb-boot.sh \
+	    $(boot_DIR)/boot.scr
 endif
 
 #------------------------------------

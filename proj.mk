@@ -61,6 +61,7 @@ RM=rm -rf
 MKDIR=mkdir -p
 CP=cp -R
 RSYNC=rsync -rlv --progress -f "- .svn"
+RT_CMD=chrt -i 0
 
 DEP=$(1).d
 DEPFLAGS=-MM -MF $(call DEP,$(1)) -MT $(1)

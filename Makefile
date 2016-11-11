@@ -2,6 +2,7 @@
 #------------------------------------
 PROJDIR?=$(abspath $(dir $(firstword $(wildcard $(addsuffix /proj.mk,. .. ../..)))))
 include $(PROJDIR)/proj.mk
+-include $(PROJDIR)/site.mk
 
 JAVA_HOME?=/usr/lib/jvm/java-8-openjdk-amd64
 
@@ -30,7 +31,7 @@ PKGCONFIG_ENV=PKG_CONFIG_SYSROOT_DIR=$(DESTDIR) \
     PKG_CONFIG_LIBDIR=$(DESTDIR)/lib/pkgconfig
 
 # android pi2 bbb
-PLATFORM=pi2
+PLATFORM?=pi2
 
 ifeq ("$(PLATFORM)","android")
 TOOLCHAIN_PATH=$(ANDROID_TOOLCHAIN_PATH)
@@ -146,21 +147,21 @@ linux_MAKE=$(MAKE) $(linux_MAKEPARAM) -C $(PKGDIR)/linux
 linux_download:
 	$(MKDIR) $(PKGDIR)
 	$(RM) $(PKGDIR)/linux
-ifeq ("$(PLATFORM)","pi2")
-	git clone https://github.com/raspberrypi/linux.git $(PKGDIR)/linux-pi
-	ln -sf linux-pi $(PKGDIR)/linux
-else
+#ifeq ("$(PLATFORM)","pi2")
+#	git clone https://github.com/raspberrypi/linux.git $(PKGDIR)/linux-pi
+#	ln -sf linux-pi $(PKGDIR)/linux
+#else
 	cd $(PKGDIR) && \
 	  wget -N https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.8.4.tar.xz && \
 	  tar -Jxvf linux-4.8.4.tar.xz
 	ln -sf linux-4.8.4 $(PKGDIR)/linux
-endif
+#endif
 
 linux_distclean:
 	$(RM) $(linux_BUILDDIR)
 
 linux_makefile:
-	$(MKDIR) $(dir $(linux_BUILDDIR))
+	$(MKDIR) $(linux_BUILDDIR)
 	if [ -f $(PROJDIR)/cfg/linux-multi-v7.config ]; then \
 	  $(CP) $(PROJDIR)/cfg/linux-multi-v7.config $(linux_BUILDDIR)/.config; \
 	else \

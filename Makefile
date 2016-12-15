@@ -27,17 +27,26 @@ ANDROID_CROSS_COMPILE=$(patsubst %gcc,%,$(notdir $(wildcard $(ANDROID_TOOLCHAIN_
 ARM_TOOLCHAIN_PATH=$(abspath $(dir $(lastword $(wildcard $(PROJDIR)/tool/*/bin/arm-linux*-gcc)))..)
 ARM_CROSS_COMPILE=$(patsubst %gcc,%,$(notdir $(wildcard $(ARM_TOOLCHAIN_PATH)/bin/*gcc)))
 
+MIPS_TOOLCHAIN_PATH=$(abspath $(dir $(lastword $(wildcard $(PROJDIR)/tool/*/bin/mips-linux*-gcc)))..)
+MIPS_CROSS_COMPILE=$(patsubst %gcc,%,$(notdir $(wildcard $(MIPS_TOOLCHAIN_PATH)/bin/*gcc)))
+
 PKGCONFIG_ENV=PKG_CONFIG_SYSROOT_DIR=$(DESTDIR) \
     PKG_CONFIG_LIBDIR=$(DESTDIR)/lib/pkgconfig
 
-# android pi2 bbb
+# android pi2 bbb ffwd
 PLATFORM?=pi2
 
 ifeq ("$(PLATFORM)","android")
 TOOLCHAIN_PATH=$(ANDROID_TOOLCHAIN_PATH)
 SYSROOT=$(ANDROID_TOOLCHAIN_SYSROOT)
 CROSS_COMPILE=$(ANDROID_CROSS_COMPILE)
-PLATFORM_CFLAGS=--sysroot=$(SYSROOT) #-mfloat-abi=softfp -mfpu=neon
+PLATFORM_CFLAGS=--sysroot=$(SYSROOT)
+PLATFORM_LDFLAGS=--sysroot=$(SYSROOT)
+else ifeq ("$(PLATFORM)","ffwd")
+TOOLCHAIN_PATH=$(MIPS_TOOLCHAIN_PATH)
+SYSROOT=$(TOOLCHAIN_PATH)/$(shell PATH=$(PATH) $(CC) -dumpmachine)/libc
+CROSS_COMPILE=$(MIPS_CROSS_COMPILE)
+PLATFORM_CFLAGS=--sysroot=$(SYSROOT)
 PLATFORM_LDFLAGS=--sysroot=$(SYSROOT)
 else ifneq ("$(strip $(filter pi2 bbb,$(PLATFORM)))","")
 TOOLCHAIN_PATH=$(ARM_TOOLCHAIN_PATH)
@@ -47,6 +56,7 @@ PLATFORM_LDFLAGS=
 endif
 
 $(info Makefile ... ARM_TOOLCHAIN_PATH: $(ARM_TOOLCHAIN_PATH))
+$(info Makefile ... MIPS_TOOLCHAIN_PATH: $(MIPS_TOOLCHAIN_PATH))
 
 EXTRA_PATH=$(PROJDIR)/tool/bin $(ANDROID_NDK_PATH) $(TOOLCHAIN_PATH:%=%/bin) \
     $(ANT_PATH:%=%/bin) $(GRADLE_PATH:%=%/bin)
@@ -140,6 +150,8 @@ ifeq ("$(PLATFORM)","pi2")
 linux_MAKEPARAM+=ARCH=arm LOADADDR=0x00200000
 else ifeq ("$(PLATFORM)","bbb")
 linux_MAKEPARAM+=ARCH=arm LOADADDR=0x80008000
+else ifeq ("$(PLATFORM)","ffwd")
+linux_MAKEPARAM+=ARCH=mips LOADADDR=0x80000000
 endif
 linux_MAKE=$(MAKE) $(linux_MAKEPARAM) -C $(PKGDIR)/linux
 
@@ -224,7 +236,7 @@ fw-pi_download:
 so1:
 	$(MAKE) SRCFILE="ld-*.so.* ld-*.so libpthread.so.* libpthread-*.so" \
 	    SRCFILE+="libc.so.* libc-*.so libm.so.* libm-*.so" \
-	    SRCDIR=$(TOOLCHAIN_PATH)/arm-linux-gnueabihf/libc/lib \
+	    SRCDIR=$(TOOLCHAIN_PATH)/$(shell PATH=$(PATH) $(CC) -dumpmachine)/libc/lib \
 	    DESTDIR=$(DESTDIR)/lib dist-cp 
 
 %/devlist:
@@ -252,8 +264,13 @@ initramfs: $(BUILDDIR)/devlist linux
 	$(RSYNC) $(PROJDIR)/prebuilt/initramfs/* $(initramfs_DIR)
 	$(MAKE) linux_initramfs_SRC="$(BUILDDIR)/devlist $(initramfs_DIR)" \
 	    DESTDIR=$(BUILDDIR) linux_initramfs
+ifeq ("$(PLATFORM)","ffwd")
+	mkimage -n 'bbq2 initramfs' -A mips -O linux -T ramdisk -a 0x80000000 -C lzma \
+	    -d $(BUILDDIR)/initramfs.cpio.gz $(BUILDDIR)/$@
+else ifneq ("$(strip $(filter pi2 bbb,$(PLATFORM)))","")
 	mkimage -n 'bbq2 initramfs' -A arm -O linux -T ramdisk -C gzip \
 	    -d $(BUILDDIR)/initramfs.cpio.gz $(BUILDDIR)/$@
+endif
 
 boot_DIR?=$(BUILDDIR)/boot
 boot: linux_uImage linux_dtbs

@@ -46,7 +46,7 @@ else ifeq ("$(PLATFORM)","ffwd")
 TOOLCHAIN_PATH=$(MIPS_TOOLCHAIN_PATH)
 SYSROOT=$(TOOLCHAIN_PATH)/$(shell PATH=$(PATH) $(CC) -dumpmachine)/libc
 CROSS_COMPILE=$(MIPS_CROSS_COMPILE)
-PLATFORM_CFLAGS=--sysroot=$(SYSROOT)
+PLATFORM_CFLAGS=--sysroot=$(SYSROOT) -mel -march=mips32r2 -Wa,-mips32r2
 PLATFORM_LDFLAGS=--sysroot=$(SYSROOT)
 else ifneq ("$(strip $(filter pi2 bbb,$(PLATFORM)))","")
 TOOLCHAIN_PATH=$(ARM_TOOLCHAIN_PATH)
@@ -65,6 +65,8 @@ export PATH:=$(subst $(SPACE),:,$(strip $(EXTRA_PATH)) $(PATH))
 $(info Makefile ... dumpmachine: $(shell bash -c "PATH=$(PATH) $(CC) -dumpmachine"))
 $(info Makefile ... SYSROOT: $(SYSROOT))
 $(info Makefile ... PATH: $(PATH))
+$(info Makefile ... PLATFORM_CFLAGS: $(PLATFORM_CFLAGS))
+$(info Makefile ... PLATFORM_LDFLAGS: $(PLATFORM_LDFLAGS))
 
 #------------------------------------
 #
@@ -380,8 +382,10 @@ test2_% test_%:
 	  echo "Missing package for $@($(call test_SUB1,$@)/$(call test_NAME,$@))"; \
 	  false; \
 	fi
-	$(MAKE) PROJDIR=$(PROJDIR) DESTDIR=$(DESTDIR) CROSS_COMPILE=$(CROSS_COMPILE) \
-	    PLATFORM_CFLAGS=$(PLATFORM_CFLAGS) PLATFORM_LDFLAGS=$(PLATFORM_LDFLAGS) \
+	$(MAKE) PROJDIR=$(PROJDIR) DESTDIR=$(DESTDIR) \
+	    PLATFORM=$(PLATFORM) CROSS_COMPILE=$(CROSS_COMPILE) \
+	    PLATFORM_CFLAGS="$(PLATFORM_CFLAGS)" \
+	    PLATFORM_LDFLAGS="$(PLATFORM_LDFLAGS)" \
 	    -C $(call test_DIR,$@) $(call test_TGT,$@)
 
 #------------------------------------

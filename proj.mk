@@ -55,6 +55,8 @@ AS=$(CROSS_COMPILE)as
 AR=$(CROSS_COMPILE)ar
 RANLIB=$(CROSS_COMPILE)ranlib
 STRIP=$(CROSS_COMPILE)strip
+OBJCOPY=$(CROSS_COMPILE)objcopy
+READELF=$(CROSS_COMPILE)readelf
 INSTALL=install -D
 INSTALL_STRIP=install -D -s --strip-program=$(STRIP)
 RM=rm -rf

@@ -2,7 +2,7 @@
 #------------------------------------
 PROJDIR?=$(abspath $(dir $(firstword $(wildcard $(addsuffix /proj.mk,. .. ../..)))))
 include $(PROJDIR)/proj.mk
--include $(PROJDIR)/site.mk
+-include $(firstword $(wildcard $(addsuffix /site.mk,. $($(PROJDIR)))))
 
 JAVA_HOME?=/usr/lib/jvm/java-8-openjdk-amd64
 
@@ -140,10 +140,11 @@ $(PROJDIR)/tool/bin/mkimage:
 # pi2 offcial https://github.com/raspberrypi/linux.git
 #
 linux_BUILDDIR=$(BUILDDIR)/linux
+linux_ENTRYADDR=$(shell PATH=$(PATH) $(READELF) -h $1 | grep "Entry" | awk '{print $$4}')
 linux_MAKEPARAM=O=$(linux_BUILDDIR) CROSS_COMPILE=$(CROSS_COMPILE) \
     INSTALL_MOD_PATH=$(DESTDIR) INSTALL_MOD_STRIP=1 \
     INSTALL_HDR_PATH=$(DESTDIR)/usr \
-    CONFIG_INITRAMFS_SOURCE=$(CONFIG_INITRAMFS_SOURCE) \
+    CONFIG_INITRAMFS_SOURCE="$(CONFIG_INITRAMFS_SOURCE)" \
     KDIR=$(PKGDIR)/linux
 ifeq ("$(PLATFORM)","pi2")
 #linux_MAKEPARAM+=LOADADDR=0x0C100000
@@ -168,18 +169,43 @@ linux_distclean:
 
 linux_makefile:
 	$(MKDIR) $(linux_BUILDDIR)
+ifeq ("$(PLATFORM)","ffwd")
+	if [ -f $(PROJDIR)/cfg/linux-ffwd.config ]; then \
+	  $(CP) $(PROJDIR)/cfg/linux-ffwd.config $(linux_BUILDDIR)/.config; \
+	else \
+	  $(linux_MAKE) rt305x_defconfig; \
+	fi
+	yes "" | $(linux_MAKE) oldconfig
+else ifneq ("$(strip $(filter pi2 bbb,$(PLATFORM)))","")	
 	if [ -f $(PROJDIR)/cfg/linux-multi-v7.config ]; then \
 	  $(CP) $(PROJDIR)/cfg/linux-multi-v7.config $(linux_BUILDDIR)/.config; \
 	else \
 	  $(linux_MAKE) multi_v7_defconfig; \
 	fi
 	yes "" | $(linux_MAKE) oldconfig
+endif
 
 linux_initramfs_SRC?=$(BUILDDIR)/devlist
 linux_initramfs:
 	cd $(linux_BUILDDIR) && \
 	  bash $(PKGDIR)/linux/scripts/gen_initramfs_list.sh \
 	      -o $(DESTDIR)/initramfs.cpio.gz $(linux_initramfs_SRC)
+
+#ifeq ("$(PLATFORM)","ffwd")
+#linux_zImage:
+#	$(RM) $(BUILDDIR)/zImage.tmp
+#	$(OBJCOPY) -O binary -R .note -R .comment -S $(linux_BUILDDIR)/vmlinux \
+#	    $(BUILDDIR)/zImage.tmp
+#	/home/joelai/02_dev/cam/ocarina/tool/bin/lzma -9 -f $(BUILDDIR)/zImage.tmp -c > $(BUILDDIR)/zImage
+#
+#linux_uImage:
+#	$(RM) $(BUILDDIR)/uImage
+#	mkimage -A mips -O linux -T kernel -a 80000000 \
+#	    -e $(call linux_ENTRYADDR,$(linux_BUILDDIR)/vmlinux) \
+#	    -n Linux \
+#	    -C lzma -d $(BUILDDIR)/zImage \
+#	    $(BUILDDIR)/uImage
+#endif
 
 linux: linux_;
 linux%: tool
@@ -334,6 +360,29 @@ zlib%:
 	$(zlib_MAKE) $(patsubst _%,%,$(@:zlib%=%))
 
 CLEAN+=zlib
+
+#------------------------------------
+#
+test_SUB1=$(word 1,$(subst _, ,$1))
+test_NAME=$(word 2,$(subst _, ,$1))
+test_DIR=$(word 1,$(wildcard $(PWD)/$(call test_SUB1,$1)/$(call test_NAME,$1) $(PROJDIR)/$(call test_SUB1,$1)/$(call test_NAME,$1)))
+test_TGT=$(patsubst _%,%,$(patsubst test_$(test_NAME)%,%,$1))
+
+#test_XXX=test_init_clean
+#$(info $(test_XXX) sub1: $(call test_SUB1,$(test_XXX)))
+#$(info $(test_XXX) name: $(call test_NAME,$(test_XXX)))
+#$(info $(test_XXX) dir: $(call test_DIR,$(test_XXX)))
+#$(info $(test_XXX) tgt: $(call test_TGT,$(test_XXX)))
+
+test2_% test_%:
+	@echo "Build ... $(call test_SUB1,$@)/$(call test_NAME,$@): $(call test_TGT,$@)"
+	@if [ ! -d "$(call test_DIR,$@)" ]; then \
+	  echo "Missing package for $@($(call test_SUB1,$@)/$(call test_NAME,$@))"; \
+	  false; \
+	fi
+	$(MAKE) PROJDIR=$(PROJDIR) DESTDIR=$(DESTDIR) CROSS_COMPILE=$(CROSS_COMPILE) \
+	    PLATFORM_CFLAGS=$(PLATFORM_CFLAGS) PLATFORM_LDFLAGS=$(PLATFORM_LDFLAGS) \
+	    -C $(call test_DIR,$@) $(call test_TGT,$@)
 
 #------------------------------------
 #------------------------------------

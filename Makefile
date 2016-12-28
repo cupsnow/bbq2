@@ -162,9 +162,9 @@ linux_download:
 	$(MKDIR) $(PKGDIR)
 	$(RM) $(PKGDIR)/linux
 	cd $(PKGDIR) && \
-	  wget -N https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.8.4.tar.xz && \
-	  tar -Jxvf linux-4.8.4.tar.xz
-	ln -sf linux-4.8.4 $(PKGDIR)/linux
+	  wget -N https://cdn.kernel.org/pub/linux/kernel/v4.x/linux-4.9.tar.xz && \
+	  tar -Jxvf linux-4.9.tar.xz
+	ln -sf linux-4.9 $(PKGDIR)/linux
 
 linux_distclean:
 	$(RM) $(linux_BUILDDIR)
@@ -224,10 +224,9 @@ CLEAN+=linux
 #------------------------------------
 #
 busybox_BUILDDIR=$(BUILDDIR)/busybox
-busybox_MAKEPARAM=O=$(busybox_BUILDDIR) CROSS_COMPILE=$(CROSS_COMPILE) \
+busybox_MAKE=$(MAKE) O=$(busybox_BUILDDIR) CROSS_COMPILE=$(CROSS_COMPILE) \
     CONFIG_PREFIX=$(DESTDIR) BBOXDIR=$(PKGDIR)/busybox-1.25.1 \
-    CONFIG_EXTRA_CFLAGS="$(PLATFORM_CFLAGS)"
-busybox_MAKE=$(MAKE) $(busybox_MAKEPARAM) -C $(busybox_BUILDDIR)
+    CONFIG_EXTRA_CFLAGS="$(PLATFORM_CFLAGS)" -C $(busybox_BUILDDIR)
 
 busybox_download:
 	$(MKDIR) $(PKGDIR) && cd $(PKGDIR) && \
@@ -239,7 +238,7 @@ busybox_distclean:
 
 busybox_makefile:
 	$(MKDIR) $(busybox_BUILDDIR)
-	$(MAKE) $(busybox_MAKEPARAM) -C $(PKGDIR)/busybox-1.25.1 defconfig
+	$(busybox_MAKE) -C $(PKGDIR)/busybox-1.25.1 defconfig
 
 busybox: busybox_;
 busybox%:
@@ -252,73 +251,6 @@ busybox%:
 	$(busybox_MAKE) $(patsubst _%,%,$(@:busybox%=%))
 
 CLEAN+=busybox
-
-#------------------------------------
-#
-fw-pi_download:
-	$(MKDIR) $(PKGDIR) && cd $(PKGDIR) && \
-	  git clone https://github.com/raspberrypi/firmware.git firmware-pi
-
-#------------------------------------
-#
-so1:
-	$(MAKE) SRCFILE="ld-*.so.* ld-*.so libpthread.so.* libpthread-*.so" \
-	    SRCFILE+="libc.so.* libc-*.so libm.so.* libm-*.so" \
-	    SRCDIR=$(TOOLCHAIN_PATH)/$(shell PATH=$(PATH) $(CC) -dumpmachine)/libc/lib \
-	    DESTDIR=$(DESTDIR)/lib dist-cp 
-
-%/devlist:
-	echo -n "" > $@
-	echo "dir /dev 0755 0 0" >> $@
-	echo "nod /dev/console 0600 0 0 c 5 1" >> $@
-
-rootfs_DIR?=$(BUILDDIR)/rootfs
-rootfs: linux linux_modules busybox
-	for i in proc sys dev tmp var/run; do \
-	  [ -d $(rootfs_DIR)/$$i ] || $(MKDIR) $(rootfs_DIR)/$$i; \
-	done
-	$(MAKE) linux_headers_install
-	$(MAKE) DESTDIR=$(rootfs_DIR) so1 $(addsuffix _install,linux_modules busybox)
-ifeq ("$(PLATFORM)","pi2")
-	$(RSYNC) $(PROJDIR)/prebuilt/rootfs-pi/* $(rootfs_DIR)
-endif
-
-initramfs_DIR?=$(BUILDDIR)/initrootfs
-initramfs: $(BUILDDIR)/devlist linux
-	$(MAKE) linux_headers_install
-	$(MAKE) busybox
-	$(MAKE) DESTDIR=$(initramfs_DIR) so1 busybox_install
-	$(RSYNC) $(PROJDIR)/prebuilt/common/* $(initramfs_DIR)
-	$(RSYNC) $(PROJDIR)/prebuilt/initramfs/* $(initramfs_DIR)
-	$(MAKE) linux_initramfs_SRC="$(BUILDDIR)/devlist $(initramfs_DIR)" \
-	    DESTDIR=$(BUILDDIR) linux_initramfs
-ifeq ("$(PLATFORM)","ffwd")
-	mkimage -n 'bbq2 initramfs' -A mips -O linux -T ramdisk -a 0x80000000 -C lzma \
-	    -d $(BUILDDIR)/initramfs.cpio.gz $(BUILDDIR)/$@
-else ifneq ("$(strip $(filter pi2 bbb,$(PLATFORM)))","")
-	mkimage -n 'bbq2 initramfs' -A arm -O linux -T ramdisk -C gzip \
-	    -d $(BUILDDIR)/initramfs.cpio.gz $(BUILDDIR)/$@
-endif
-
-boot_DIR?=$(BUILDDIR)/boot
-boot: linux_uImage linux_dtbs
-	$(MKDIR) $(boot_DIR)
-ifeq ("$(PLATFORM)","pi2")
-	$(RSYNC) $(PROJDIR)/prebuilt/boot-pi/* $(boot_DIR)
-	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/zImage \
-	    $(boot_DIR)/kernel7.img
-	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/dts/bcm2836-rpi-2-b.dtb \
-	    $(boot_DIR)/bcm2709-rpi-2-b.dtb
-else ifeq ("$(PLATFORM)","bbb")
-	$(MAKE) initramfs
-	$(RSYNC) $(BUILDDIR)/initramfs $(boot_DIR)/
-	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/uImage \
-	    $(boot_DIR)/
-	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/dts/am335x-boneblack.dtb \
-	    $(boot_DIR)/dtb
-	mkimage -C none -A arm -T script -d $(PROJDIR)/cfg/bbb-boot.sh \
-	    $(boot_DIR)/boot.scr
-endif
 
 #------------------------------------
 #
@@ -361,7 +293,174 @@ zlib%:
 	fi
 	$(zlib_MAKE) $(patsubst _%,%,$(@:zlib%=%))
 
-CLEAN+=zlib
+CLEAN += zlib
+
+#------------------------------------
+#
+wt_BUILDDIR=$(BUILDDIR)/wt
+wt_MAKE=$(MAKE) PREFIX=$(DESTDIR) CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) \
+    -C $(wt_BUILDDIR)
+
+wt_download:
+	$(MKDIR) $(PKGDIR) && cd $(PKGDIR) && \
+	  wget -N https://hewlettpackard.github.io/wireless-tools/wireless_tools.29.tar.gz
+
+wt_dir:
+	$(MKDIR) $(dir $(wt_BUILDDIR)) && cd $(dir $(wt_BUILDDIR)) && \
+	  tar -zxvf $(PKGDIR)/wireless_tools.29.tar.gz && \
+	  mv wireless_tools.29 $(wt_BUILDDIR)
+
+wt_distclean:
+	$(RM) $(wt_BUILDDIR)
+
+wt: wt_;
+wt%:
+	if [ ! -e $(PKGDIR)/wireless_tools.29.tar.gz ]; then \
+	  $(MAKE) wt_download; \
+	fi
+	if [ ! -d $(wt_BUILDDIR) ]; then \
+	  $(MAKE) wt_dir; \
+	fi
+	$(wt_MAKE) $(patsubst _%,%,$(@:wt%=%))
+
+CLEAN+=wt
+
+#------------------------------------
+#
+openssl_BUILDDIR = $(BUILDDIR)/openssl
+openssl_MAKE = $(MAKE) INSTALL_PREFIX=$(DESTDIR) \
+    CFLAG="$(PLATFORM_CFLAGS) -I$(DESTDIR)/include -fPIC" \
+    EX_LIBS="$(PLATFORM_LDFLAGS) -L$(DESTDIR)/lib" \
+     -C $(openssl_BUILDDIR)
+
+openssl_download:
+	$(MKDIR) $(PKGDIR) && cd $(PKGDIR) && \
+	  wget -N https://www.openssl.org/source/openssl-1.0.2j.tar.gz
+
+openssl_dir:
+	$(MKDIR) $(dir $(openssl_BUILDDIR)) && cd $(dir $(openssl_BUILDDIR)) && \
+	  tar -zxvf $(PKGDIR)/openssl-1.0.2j.tar.gz && \
+	  mv openssl-1.0.2j $(openssl_BUILDDIR)
+	$(openssl_MAKE) clean
+
+openssl_distclean:
+	$(RM) $(openssl_BUILDDIR)
+
+openssl_makefile:
+	cd $(openssl_BUILDDIR) && \
+	    ./Configure threads shared zlib-dynamic \
+	    --prefix=/ --openssldir=/usr/openssl \
+	    --cross-compile-prefix=$(CROSS_COMPILE) \
+	    linux-generic32
+
+openssl_install:
+	if [ ! -e $(openssl_DIR)/libcrypto.so ]; then \
+	  $(MAKE) openssl; \
+	fi
+	$(MAKE) INSTALL_PREFIX=$(DESTDIR) -j1 -C $(openssl_BUILDDIR) \
+	    $(patsubst _%,%,$(@:openssl%=%))
+
+openssl: openssl_;
+openssl%:
+	if [ ! -e $(PKGDIR)/openssl-1.0.2j.tar.gz ]; then \
+	  $(MAKE) openssl_download; \
+	fi
+	if [ ! -d $(openssl_BUILDDIR) ]; then \
+	  $(MAKE) openssl_dir; \
+	fi
+	if [ ! -e $(openssl_BUILDDIR)/include/openssl ]; then \
+	  $(MAKE) openssl_makefile; \
+	fi
+	$(openssl_MAKE) $(patsubst _%,%,$(@:openssl%=%))
+
+CLEAN += openssl
+
+#------------------------------------
+#
+fw-pi_download:
+	$(MKDIR) $(PKGDIR) && cd $(PKGDIR) && \
+	  git clone https://github.com/raspberrypi/firmware.git firmware-pi
+
+#------------------------------------
+#
+so1:
+	$(MAKE) SRCFILE="ld-*.so.* ld-*.so libpthread.so.* libpthread-*.so" \
+	    SRCFILE+="libc.so.* libc-*.so libm.so.* libm-*.so" \
+	    SRCDIR=$(TOOLCHAIN_PATH)/$(shell PATH=$(PATH) $(CC) -dumpmachine)/libc/lib \
+	    DESTDIR=$(DESTDIR)/lib dist-cp 
+
+%/devlist:
+	echo -n "" > $@
+	echo "dir /dev 0755 0 0" >> $@
+	echo "nod /dev/console 0600 0 0 c 5 1" >> $@
+
+rootfs_DIR?=$(BUILDDIR)/rootfs
+rootfs: linux linux_modules busybox
+	for i in proc sys dev tmp var/run; do \
+	  [ -d $(rootfs_DIR)/$$i ] || $(MKDIR) $(rootfs_DIR)/$$i; \
+	done
+	$(MAKE) linux_headers_install
+	$(MAKE) DESTDIR=$(rootfs_DIR) so1 $(addsuffix _install,linux_modules busybox)	
+	# install prebuilt
+	$(RSYNC) $(PROJDIR)/prebuilt/rootfs-common/* $(rootfs_DIR)
+ifeq ("$(PLATFORM)","pi2")
+	$(RSYNC) $(PROJDIR)/prebuilt/rootfs-pi/* $(rootfs_DIR)
+endif
+
+rootfs_openssl:
+#	$(MAKE) $(addsuffix _install,openssl)
+	$(MAKE) SRCFILE="engines libcrypto.so{,.*} libssl.so{,.*}" \
+	    SRCDIR=$(DESTDIR)/lib DESTDIR=$(rootfs_DIR)/lib dist-cp
+	$(MAKE) SRCFILE="openssl" \
+	    SRCDIR=$(DESTDIR)/bin DESTDIR=$(rootfs_DIR)/bin dist-cp
+	$(MAKE) SRCFILE="certs misc private openssl.cnf" \
+	    SRCDIR=$(DESTDIR)/usr/openssl DESTDIR=$(rootfs_DIR)/usr/openssl dist-cp
+
+rootfs_wifi:
+	$(MAKE) $(addsuffix _install,wt)
+	$(MAKE) SRCFILE="libiw.so{,.*}" \
+	    SRCDIR=$(DESTDIR)/lib DESTDIR=$(rootfs_DIR)/lib dist-cp
+	$(MAKE) SRCFILE="ifrename iwconfig iwevent iwgetid iwlist iwpriv iwspy" \
+	    SRCDIR=$(DESTDIR)/sbin DESTDIR=$(rootfs_DIR)/sbin dist-cp	
+
+initramfs_DIR?=$(BUILDDIR)/initrootfs
+initramfs: $(BUILDDIR)/devlist linux
+	$(MAKE) linux_headers_install
+	$(MAKE) busybox
+	$(MAKE) DESTDIR=$(initramfs_DIR) so1 busybox_install
+	$(RSYNC) $(PROJDIR)/prebuilt/common/* $(initramfs_DIR)
+	$(RSYNC) $(PROJDIR)/prebuilt/initramfs/* $(initramfs_DIR)
+	$(MAKE) linux_initramfs_SRC="$(BUILDDIR)/devlist $(initramfs_DIR)" \
+	    DESTDIR=$(BUILDDIR) linux_initramfs
+ifeq ("$(PLATFORM)","ffwd")
+	mkimage -n 'bbq2 initramfs' -A mips -O linux -T ramdisk -a 0x80000000 -C lzma \
+	    -d $(BUILDDIR)/initramfs.cpio.gz $(BUILDDIR)/$@
+else ifneq ("$(strip $(filter pi2 bbb,$(PLATFORM)))","")
+	mkimage -n 'bbq2 initramfs' -A arm -O linux -T ramdisk -C gzip \
+	    -d $(BUILDDIR)/initramfs.cpio.gz $(BUILDDIR)/$@
+endif
+
+boot_DIR?=$(BUILDDIR)/boot
+boot: linux_uImage
+	$(MKDIR) $(boot_DIR)
+ifeq ("$(PLATFORM)","pi2")
+	$(MAKE) linux_bcm2836-rpi-2-b.dtb
+	$(RSYNC) $(PROJDIR)/prebuilt/boot-pi/* $(boot_DIR)
+	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/zImage \
+	    $(boot_DIR)/kernel7.img
+	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/dts/bcm2836-rpi-2-b.dtb \
+	    $(boot_DIR)/bcm2709-rpi-2-b.dtb
+else ifeq ("$(PLATFORM)","bbb")
+	$(MAKE) am335x-boneblack.dtb
+	$(MAKE) initramfs
+	$(RSYNC) $(BUILDDIR)/initramfs $(boot_DIR)/
+	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/uImage \
+	    $(boot_DIR)/
+	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/dts/am335x-boneblack.dtb \
+	    $(boot_DIR)/dtb
+	mkimage -C none -A arm -T script -d $(PROJDIR)/cfg/bbb-boot.sh \
+	    $(boot_DIR)/boot.scr
+endif
 
 #------------------------------------
 #
@@ -382,7 +481,7 @@ test2_% test_%:
 	  echo "Missing package for $@($(call test_SUB1,$@)/$(call test_NAME,$@))"; \
 	  false; \
 	fi
-	$(MAKE) PROJDIR=$(PROJDIR) DESTDIR=$(DESTDIR) \
+	$(MAKE) PROJDIR=$(PROJDIR) DESTDIR=$(DESTDIR) BUILDROOT=$(BUILDROOT) \
 	    PLATFORM=$(PLATFORM) CROSS_COMPILE=$(CROSS_COMPILE) \
 	    PLATFORM_CFLAGS="$(PLATFORM_CFLAGS)" \
 	    PLATFORM_LDFLAGS="$(PLATFORM_LDFLAGS)" \

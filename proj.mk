@@ -39,17 +39,19 @@
 #
 PWD=$(abspath .)
 PROJDIR?=$(abspath .)
-DESTDIR?=$(PROJDIR)/destdir
 PKGDIR?=$(PROJDIR)/package
-BUILDDIR?=$(PWD)/build
+BUILDROOT?=$(PWD)
+DESTDIR?=$(BUILDROOT)/destdir
+BUILDDIR?=$(BUILDROOT)/build
 
 EMPTY =# empty
 SPACE=$(EMPTY) $(EMPTY)
+COMMA=,
 
 #------------------------------------
 #
 CC=$(CROSS_COMPILE)gcc
-C++=$(CROSS_COMPILE)g++
+C++ =$(CROSS_COMPILE)g++
 LD=$(CROSS_COMPILE)ld
 AS=$(CROSS_COMPILE)as
 AR=$(CROSS_COMPILE)ar
@@ -67,7 +69,7 @@ RT_CMD=chrt -i 0
 
 DEP=$(1).d
 DEPFLAGS=-MM -MF $(call DEP,$(1)) -MT $(1)
-TOKEN=$(word $(1),$(subst _, ,$(2)))
+TOKEN=$(strip $(word $(1),$(subst _, ,$(2))))
 
 #------------------------------------
 # "$(COLOR_RED)red$(COLOR)"
@@ -197,11 +199,11 @@ $$($(1)_OBJ_C): %.o : %.c
 endef
 
 define PROJ_COMPILE_CPP
-$$($(1)_OBJ_C): %.o : %.c
+$$($(1)_OBJ_CPP): %.o : %.cpp
 	$$(C++) -c -o $$@ $(or $($(1)_CFLAGS),$$(CFLAGS)) $$<
 	$$(C++) -E $$(call DEPFLAGS,$$@) $(or $($(1)_CFLAGS),$$(CFLAGS)) $$<
 
--include $$(addsuffix $$(DEP),$$($(1)_OBJ_C))
+-include $$(addsuffix $$(DEP),$$($(1)_OBJ_CPP))
 endef
 
 #------------------------------------
@@ -247,6 +249,7 @@ $(info proj.mk ... MAKELEVEL: $(MAKELEVEL))
 # $(info proj.mk ... PROJDIR: $(PROJDIR))
 # $(info proj.mk ... SYSROOT: $(SYSROOT))
 $(info proj.mk ... PWD: $(PWD))
+$(info proj.mk ... BUILDDIR: $(BUILDDIR))
 $(info proj.mk ... MAKECMDGOALS: $(MAKECMDGOALS))
 # $(info proj.mk ... .VARIABLES: $(.VARIABLES))
 # $(info proj.mk ... .INCLUDE_DIRS: $(.INCLUDE_DIRS))

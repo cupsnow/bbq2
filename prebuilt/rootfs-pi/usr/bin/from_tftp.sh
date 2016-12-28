@@ -1,4 +1,4 @@
-REMOTE=192.168.1.47
+REMOTE=192.168.1.34
 ret=0
 
 ip_alloc() {

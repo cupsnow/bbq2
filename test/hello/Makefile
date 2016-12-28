@@ -15,10 +15,19 @@ install distclean clean:
 #------------------------------------
 #
 MOD:=hello
-$(MOD)_OBJ=$(patsubst %.c,%.o,$(wildcard *.c))
-$(MOD): $($(MOD)_OBJ:%.o=%.c)
+$(MOD)_OBJ_C=$(patsubst %.c,%.o,$(wildcard *.c))
+$(MOD)_OBJ=$($(MOD)_OBJ_C) $($(MOD)_OBJ_CPP)
+
+$(MOD): $(BUILDDIR)/test/$(MOD)/$(MOD);
+
+$(BUILDDIR)/test/$(MOD)/$(MOD): $($(MOD)_OBJ:%.o=%.c)
+	$(MKDIR) $(dir $@)
 	$(CC) -o $@ -static $(^:%.o=%.c) $(CFLAGS) $(LDFLAGS)
 
-$(MOD)_clean:
-	$(RM) $($(MOD)_OBJ) $(MOD)
+$(MOD)_disclean $(MOD)_clean:
+	$(RM) $($(MOD)_OBJ) $(BUILDDIR)/test/$(MOD)/$@
 
+$(MOD)_install: $(MOD)
+	$(INSTALL_STRIP) $(BUILDDIR)/test/$(MOD)/$(MOD) $(DESTDIR)/usr/bin
+
+TGT+=hello

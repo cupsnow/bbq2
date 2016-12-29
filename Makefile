@@ -98,7 +98,8 @@ uboot_MAKEPARAM=O=$(uboot_BUILDDIR) CROSS_COMPILE=$(CROSS_COMPILE) \
 uboot_MAKE=$(MAKE) $(uboot_MAKEPARAM) -C $(PKGDIR)/u-boot-2016.09
 
 uboot_download:
-	$(MKDIR) $(PKGDIR) && cd $(PKGDIR) && \
+	$(MKDIR) $(PKGDIR)
+	cd $(PKGDIR) && \
 	  wget -N ftp://ftp.denx.de/pub/u-boot/u-boot-2016.09.tar.bz2 && \
 	  tar -jxvf u-boot-2016.09.tar.bz2
 
@@ -229,7 +230,8 @@ busybox_MAKE=$(MAKE) O=$(busybox_BUILDDIR) CROSS_COMPILE=$(CROSS_COMPILE) \
     CONFIG_EXTRA_CFLAGS="$(PLATFORM_CFLAGS)" -C $(busybox_BUILDDIR)
 
 busybox_download:
-	$(MKDIR) $(PKGDIR) && cd $(PKGDIR) && \
+	$(MKDIR) $(PKGDIR)
+	cd $(PKGDIR) && \
 	  wget -N https://www.busybox.net/downloads/busybox-1.25.1.tar.bz2 && \
 	  tar -jxvf busybox-1.25.1.tar.bz2
 
@@ -258,11 +260,13 @@ zlib_BUILDDIR=$(BUILDDIR)/zlib
 zlib_MAKE=$(MAKE) DESTDIR=$(DESTDIR) -C $(zlib_BUILDDIR)
 
 zlib_download:
-	$(MKDIR) $(PKGDIR) && cd $(PKGDIR) && \
+	$(MKDIR) $(PKGDIR)
+	cd $(PKGDIR) && \
 	  wget -N http://zlib.net/zlib-1.2.8.tar.xz
 
 zlib_dir:
-	$(MKDIR) $(dir $(zlib_BUILDDIR)) && cd $(dir $(zlib_BUILDDIR)) && \
+	$(MKDIR) $(dir $(zlib_BUILDDIR))
+	cd $(dir $(zlib_BUILDDIR)) && \
 	  tar -Jxvf $(PKGDIR)/zlib-1.2.8.tar.xz && \
 	  mv zlib-1.2.8 $(zlib_BUILDDIR)
 
@@ -297,16 +301,18 @@ CLEAN += zlib
 
 #------------------------------------
 #
-wt_BUILDDIR=$(BUILDDIR)/wt
-wt_MAKE=$(MAKE) PREFIX=$(DESTDIR) CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) \
+wt_BUILDDIR=$(BUILDDIR)/wireless-tools
+wt_MAKE=$(MAKE) PREFIX=$(DESTDIR) LDCONFIG=true CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) \
     -C $(wt_BUILDDIR)
 
 wt_download:
-	$(MKDIR) $(PKGDIR) && cd $(PKGDIR) && \
+	$(MKDIR) $(PKGDIR)
+	cd $(PKGDIR) && \
 	  wget -N https://hewlettpackard.github.io/wireless-tools/wireless_tools.29.tar.gz
 
 wt_dir:
-	$(MKDIR) $(dir $(wt_BUILDDIR)) && cd $(dir $(wt_BUILDDIR)) && \
+	$(MKDIR) $(dir $(wt_BUILDDIR))
+	cd $(dir $(wt_BUILDDIR)) && \
 	  tar -zxvf $(PKGDIR)/wireless_tools.29.tar.gz && \
 	  mv wireless_tools.29 $(wt_BUILDDIR)
 
@@ -327,18 +333,20 @@ CLEAN+=wt
 
 #------------------------------------
 #
-openssl_BUILDDIR = $(BUILDDIR)/openssl
-openssl_MAKE = $(MAKE) INSTALL_PREFIX=$(DESTDIR) \
+openssl_BUILDDIR=$(BUILDDIR)/openssl
+openssl_MAKE=$(MAKE) INSTALL_PREFIX=$(DESTDIR) \
     CFLAG="$(PLATFORM_CFLAGS) -I$(DESTDIR)/include -fPIC" \
     EX_LIBS="$(PLATFORM_LDFLAGS) -L$(DESTDIR)/lib" \
      -C $(openssl_BUILDDIR)
 
 openssl_download:
-	$(MKDIR) $(PKGDIR) && cd $(PKGDIR) && \
+	$(MKDIR) $(PKGDIR)
+	cd $(PKGDIR) && \
 	  wget -N https://www.openssl.org/source/openssl-1.0.2j.tar.gz
 
 openssl_dir:
-	$(MKDIR) $(dir $(openssl_BUILDDIR)) && cd $(dir $(openssl_BUILDDIR)) && \
+	$(MKDIR) $(dir $(openssl_BUILDDIR))
+	cd $(dir $(openssl_BUILDDIR)) && \
 	  tar -zxvf $(PKGDIR)/openssl-1.0.2j.tar.gz && \
 	  mv openssl-1.0.2j $(openssl_BUILDDIR)
 	$(openssl_MAKE) clean
@@ -377,8 +385,126 @@ CLEAN += openssl
 
 #------------------------------------
 #
+libnl_BUILDDIR=$(BUILDDIR)/libnl
+libnl_MAKE=$(MAKE) DESTDIR=$(DESTDIR) -C $(libnl_BUILDDIR)
+
+libnl_download:
+	$(MKDIR) $(PKGDIR)
+	cd $(PKGDIR) && \
+	  wget -N https://www.infradead.org/~tgr/libnl/files/libnl-3.2.25.tar.gz && \
+	  tar -zxvf libnl-3.2.25.tar.gz
+
+libnl_distclean:
+	$(RM) $(libnl_BUILDDIR)
+
+libnl_makefile:
+	$(MKDIR) $(libnl_BUILDDIR)
+	cd $(libnl_BUILDDIR) && $(PKGCONFIG_ENV) $(PKGDIR)/libnl-3.2.25/configure \
+	    --prefix= --host=`$(CC) -dumpmachine` \
+	    CFLAGS="$(PLATFORM_CFLAGS) -I$(DESTDIR)/include" \
+	    LDFLAGS="$(PLATFORM_LDFLAGS) -L$(DESTDIR)/lib"
+
+libnl_clean:
+	if [ -e $(libnl_DIR)/Makefile ]; then \
+	  $(libnl_MAKE) $(patsubst _%,%,$(@:libnl%=%)); \
+	fi
+
+libnl: libnl_;
+libnl%:
+	if [ ! -e $(PKGDIR)/libnl-3.2.25.tar.gz ]; then \
+	  $(MAKE) libnl_download; \
+	fi
+	if [ ! -e $(libnl_BUILDDIR)/Makefile ]; then \
+	  $(MAKE) libnl_makefile; \
+	fi
+	$(libnl_MAKE) $(patsubst _%,%,$(@:libnl%=%))
+
+CLEAN += libnl
+
+#------------------------------------
+# dep: libnl3, openssl
+#
+ws_BUILDDIR = $(BUILDDIR)/wpasupplicant
+ws_MAKE = $(PKGCONFIG_ENV) $(MAKE) CC=$(CC) DESTDIR=$(DESTDIR) \
+    BINDIR=/sbin LIBDIR=/lib INCDIR=/include \
+    EXTRA_CFLAGS="$(PLATFORM_CFLAGS) -I$(DESTDIR)/include" \
+    LDFLAGS="$(PLATFORM_LDFLAGS) -L$(DESTDIR)/lib" \
+	CONFIG_LIBNL32=y CONFIG_LIBNL3_ROUTE=y CONFIG_WPS=1 CONFIG_SMARTCARD=n V=1 \
+    -C $(ws_BUILDDIR)/wpa_supplicant
+
+ws_download:
+	$(MKDIR) $(PKGDIR)
+	cd $(PKGDIR) && \
+	  wget -N https://w1.fi/releases/wpa_supplicant-2.6.tar.gz
+
+ws_dir:
+	$(MKDIR) $(dir $(ws_BUILDDIR))
+	cd $(dir $(ws_BUILDDIR)) && \
+	  tar -zxvf $(PKGDIR)/wpa_supplicant-2.6.tar.gz && \
+	  mv wpa_supplicant-2.6 $(ws_BUILDDIR)
+
+ws_distclean:
+	$(RM) $(ws_BUILDDIR)
+
+ws: ws_;
+ws%:
+	if [ ! -e $(PKGDIR)/wpa_supplicant-2.6.tar.gz ]; then \
+	  $(MAKE) ws_download; \
+	fi
+	if [ ! -d $(ws_BUILDDIR) ]; then \
+	  $(MAKE) ws_dir; \
+	fi
+	if [ ! -e $(ws_BUILDDIR)/wpa_supplicant/.config ]; then \
+	  cp $(ws_BUILDDIR)/wpa_supplicant/defconfig $(ws_BUILDDIR)/wpa_supplicant/.config; \
+	fi
+	$(ws_MAKE) $(patsubst _%,%,$(@:ws%=%))
+
+CLEAN += ws
+
+#------------------------------------
+#
+hostapd_BUILDDIR = $(BUILDDIR)/hostapd
+hostapd_MAKE = $(PKGCONFIG_ENV) $(MAKE) CC=$(CC) DESTDIR=$(DESTDIR) \
+    BINDIR=/sbin LIBDIR=/lib INCDIR=/include \
+    EXTRA_CFLAGS="$(PLATFORM_CFLAGS) -I$(DESTDIR)/include" \
+    LDFLAGS="$(PLATFORM_LDFLAGS) -L$(DESTDIR)/lib" \
+	CONFIG_LIBNL32=y CONFIG_LIBNL3_ROUTE=y CONFIG_WPS=1 CONFIG_SMARTCARD=n V=1 \
+    -C $(hostapd_BUILDDIR)/hostapd
+
+hostapd_download:
+	$(MKDIR) $(PKGDIR)
+	cd $(PKGDIR) && \
+	  wget -N http://w1.fi/releases/hostapd-2.6.tar.gz
+
+hostapd_dir:
+	$(MKDIR) $(dir $(hostapd_BUILDDIR))
+	cd $(dir $(hostapd_BUILDDIR)) && \
+	  tar -zxvf $(PKGDIR)/hostapd-2.6.tar.gz && \
+	  mv hostapd-2.6 $(hostapd_BUILDDIR)
+
+hostapd_distclean:
+	$(RM) $(hostapd_BUILDDIR)
+
+hostapd: hostapd_;
+hostapd%:
+	if [ ! -e $(PKGDIR)/hostapd-2.6.tar.gz ]; then \
+	  $(MAKE) hostapd_download; \
+	fi
+	if [ ! -d $(hostapd_BUILDDIR) ]; then \
+	  $(MAKE) hostapd_dir; \
+	fi
+	if [ ! -e $(hostapd_BUILDDIR)/hostapd/.config ]; then \
+	  cp $(hostapd_BUILDDIR)/hostapd/defconfig $(hostapd_BUILDDIR)/hostapd/.config; \
+	fi
+	$(hostapd_MAKE) $(patsubst _%,%,$(@:hostapd%=%))
+
+CLEAN += hostapd
+
+#------------------------------------
+#
 fw-pi_download:
-	$(MKDIR) $(PKGDIR) && cd $(PKGDIR) && \
+	$(MKDIR) $(PKGDIR)
+	cd $(PKGDIR) && \
 	  git clone https://github.com/raspberrypi/firmware.git firmware-pi
 
 #------------------------------------
@@ -388,6 +514,17 @@ so1:
 	    SRCFILE+="libc.so.* libc-*.so libm.so.* libm-*.so" \
 	    SRCDIR=$(TOOLCHAIN_PATH)/$(shell PATH=$(PATH) $(CC) -dumpmachine)/libc/lib \
 	    DESTDIR=$(DESTDIR)/lib dist-cp 
+so2:
+	$(MAKE) SRCFILE="libgcc_s.so.1 libdl.so.* libdl-*.so librt.so.* librt-*.so" \
+	    SRCFILE+="libnss_*.so libnss_*.so.*" \
+	    SRCDIR=$(TOOLCHAIN_PATH)/$(shell PATH=$(PATH) $(CC) -dumpmachine)/libc/lib \
+	    DESTDIR=$(DESTDIR)/lib dist-cp
+
+so3:
+	$(MAKE) SRCFILE="libutil.so.* libutil-*.so libcrypt.so.* libcrypt-*.so" \
+	    SRCFILE+="libresolv.so.* libresolv-*.so" \
+	    SRCDIR=$(TOOLCHAIN_PATH)/$(shell PATH=$(PATH) $(CC) -dumpmachine)/libc/lib \
+	    DESTDIR=$(DESTDIR)/lib dist-cp
 
 %/devlist:
 	echo -n "" > $@
@@ -395,7 +532,7 @@ so1:
 	echo "nod /dev/console 0600 0 0 c 5 1" >> $@
 
 rootfs_DIR?=$(BUILDDIR)/rootfs
-rootfs: linux linux_modules busybox
+rootfs_boot: linux linux_modules busybox
 	for i in proc sys dev tmp var/run; do \
 	  [ -d $(rootfs_DIR)/$$i ] || $(MKDIR) $(rootfs_DIR)/$$i; \
 	done
@@ -407,8 +544,7 @@ ifeq ("$(PLATFORM)","pi2")
 	$(RSYNC) $(PROJDIR)/prebuilt/rootfs-pi/* $(rootfs_DIR)
 endif
 
-rootfs_openssl:
-#	$(MAKE) $(addsuffix _install,openssl)
+rootfs_openssl: $(addsuffix _install,openssl)
 	$(MAKE) SRCFILE="engines libcrypto.so{,.*} libssl.so{,.*}" \
 	    SRCDIR=$(DESTDIR)/lib DESTDIR=$(rootfs_DIR)/lib dist-cp
 	$(MAKE) SRCFILE="openssl" \
@@ -416,12 +552,22 @@ rootfs_openssl:
 	$(MAKE) SRCFILE="certs misc private openssl.cnf" \
 	    SRCDIR=$(DESTDIR)/usr/openssl DESTDIR=$(rootfs_DIR)/usr/openssl dist-cp
 
-rootfs_wifi:
-	$(MAKE) $(addsuffix _install,wt)
+# dep openssl
+rootfs_wifi: $(addsuffix _install,wt libnl)
+	$(MAKE) $(addsuffix _install,ws hostapd)
 	$(MAKE) SRCFILE="libiw.so{,.*}" \
+	    SRCFILE+="libnl-*.so{,.*}" \
 	    SRCDIR=$(DESTDIR)/lib DESTDIR=$(rootfs_DIR)/lib dist-cp
 	$(MAKE) SRCFILE="ifrename iwconfig iwevent iwgetid iwlist iwpriv iwspy" \
+	    SRCFILE+="nl-* wpa_* hostapd{,_*}" \
 	    SRCDIR=$(DESTDIR)/sbin DESTDIR=$(rootfs_DIR)/sbin dist-cp	
+	$(MAKE) SRCFILE="libnl" \
+	    SRCDIR=$(DESTDIR)/etc DESTDIR=$(rootfs_DIR)/etc dist-cp	
+
+rootfs:
+	$(MAKE) DESTDIR=$(rootfs_DIR) so1 so2 so3
+	$(MAKE) rootfs_boot rootfs_openssl
+	$(MAKE) rootfs_wifi
 
 initramfs_DIR?=$(BUILDDIR)/initrootfs
 initramfs: $(BUILDDIR)/devlist linux

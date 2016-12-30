@@ -469,7 +469,7 @@ hostapd_MAKE = $(PKGCONFIG_ENV) $(MAKE) CC=$(CC) DESTDIR=$(DESTDIR) \
     EXTRA_CFLAGS="$(PLATFORM_CFLAGS) -I$(DESTDIR)/include" \
     LDFLAGS="$(PLATFORM_LDFLAGS) -L$(DESTDIR)/lib" \
 	CONFIG_LIBNL32=y CONFIG_LIBNL3_ROUTE=y CONFIG_WPS=1 CONFIG_SMARTCARD=n V=1 \
-    -C $(hostapd_BUILDDIR)/hostapd
+	CONFIG_ACS=y -C $(hostapd_BUILDDIR)/hostapd
 
 hostapd_download:
 	$(MKDIR) $(PKGDIR)

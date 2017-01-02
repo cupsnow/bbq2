@@ -28,6 +28,6 @@ $(MOD)_disclean $(MOD)_clean:
 	$(RM) $($(MOD)_OBJ) $(BUILDDIR)/test/$(MOD)/$@
 
 $(MOD)_install: $(MOD)
-	$(INSTALL_STRIP) $(BUILDDIR)/test/$(MOD)/$(MOD) $(DESTDIR)/usr/bin
+	$(INSTALL_STRIP) $(BUILDDIR)/test/$(MOD)/$(MOD) $(DESTDIR)/usr/bin/$(MOD)
 
 TGT+=hello

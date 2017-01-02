@@ -1,5 +1,6 @@
 # $Id$
 #------------------------------------
+export SHELL=/bin/bash
 PROJDIR?=$(abspath $(dir $(firstword $(wildcard $(addsuffix /proj.mk,. .. ../..)))))
 include $(PROJDIR)/proj.mk
 -include $(firstword $(wildcard $(addsuffix /site.mk,. $($(PROJDIR)))))
@@ -48,10 +49,15 @@ SYSROOT=$(TOOLCHAIN_PATH)/$(shell PATH=$(PATH) $(CC) -dumpmachine)/libc
 CROSS_COMPILE=$(MIPS_CROSS_COMPILE)
 PLATFORM_CFLAGS=--sysroot=$(SYSROOT) -mel -march=mips32r2 -Wa,-mips32r2
 PLATFORM_LDFLAGS=--sysroot=$(SYSROOT)
-else ifneq ("$(strip $(filter pi2 bbb,$(PLATFORM)))","")
+else ifeq ("$(PLATFORM)","pi2")
 TOOLCHAIN_PATH=$(ARM_TOOLCHAIN_PATH)
 CROSS_COMPILE=$(ARM_CROSS_COMPILE)
 PLATFORM_CFLAGS=-mcpu=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard
+PLATFORM_LDFLAGS=
+else ifneq ("$(strip $(filter bbb bb,$(PLATFORM)))","")
+TOOLCHAIN_PATH=$(ARM_TOOLCHAIN_PATH)
+CROSS_COMPILE=$(ARM_CROSS_COMPILE)
+PLATFORM_CFLAGS=-mcpu=cortex-a8 -mfpu=neon -mfloat-abi=hard
 PLATFORM_LDFLAGS=
 endif
 
@@ -110,6 +116,8 @@ uboot_makefile:
 	$(MKDIR) $(dir $(uboot_BUILDDIR))
 ifeq ("$(PLATFORM)","pi2")
 	$(uboot_MAKE) rpi_2_defconfig
+else ifeq ("$(PLATFORM)","bb")
+	$(uboot_MAKE) am335x_evm_defconfig
 else ifeq ("$(PLATFORM)","bbb")
 	$(uboot_MAKE) am335x_boneblack_defconfig
 endif
@@ -132,7 +140,7 @@ uboot%:
 CLEAN+=uboot
 
 #------------------------------------
-tool: $(PROJDIR)/tool/bin/mkimage;
+tool: $(PROJDIR)/tool/bin/mkimage
 
 $(PROJDIR)/tool/bin/mkimage:
 	$(MAKE) uboot_tools
@@ -152,10 +160,10 @@ linux_MAKEPARAM=O=$(linux_BUILDDIR) CROSS_COMPILE=$(CROSS_COMPILE) \
 ifeq ("$(PLATFORM)","pi2")
 #linux_MAKEPARAM+=LOADADDR=0x0C100000
 linux_MAKEPARAM+=ARCH=arm LOADADDR=0x00200000
-else ifeq ("$(PLATFORM)","bbb")
-linux_MAKEPARAM+=ARCH=arm LOADADDR=0x80008000
 else ifeq ("$(PLATFORM)","ffwd")
 linux_MAKEPARAM+=ARCH=mips LOADADDR=0x80000000
+else ifneq ("$(strip $(filter bbb bb,$(PLATFORM)))","")
+linux_MAKEPARAM+=ARCH=arm LOADADDR=0x80008000
 endif
 linux_MAKE=$(MAKE) $(linux_MAKEPARAM) -C $(PKGDIR)/linux
 
@@ -179,9 +187,9 @@ ifeq ("$(PLATFORM)","ffwd")
 	  $(linux_MAKE) rt305x_defconfig; \
 	fi
 	yes "" | $(linux_MAKE) oldconfig
-else ifneq ("$(strip $(filter pi2 bbb,$(PLATFORM)))","")	
-	if [ -f $(PROJDIR)/cfg/linux-multi-v7.config ]; then \
-	  $(CP) $(PROJDIR)/cfg/linux-multi-v7.config $(linux_BUILDDIR)/.config; \
+else ifneq ("$(strip $(filter pi2 bbb bb,$(PLATFORM)))","")	
+	if [ -f $(PROJDIR)/cfg/pi-linux-4.9-multi-v7.config ]; then \
+	  $(CP) $(PROJDIR)/cfg/pi-linux-4.9-multi-v7.config $(linux_BUILDDIR)/.config; \
 	else \
 	  $(linux_MAKE) multi_v7_defconfig; \
 	fi
@@ -502,6 +510,43 @@ CLEAN += hostapd
 
 #------------------------------------
 #
+dtc-host_BUILDDIR = $(PROJDIR)/build/dtc
+dtc-host_MAKE = $(PKGCONFIG_ENV) $(MAKE) CC=gcc PREFIX=/ DESTDIR=$(PROJDIR)/tool \
+  -C $(dtc-host_BUILDDIR)
+
+dtc_download:
+	$(MKDIR) $(PKGDIR)
+	cd $(PKGDIR) && \
+	  git clone git://git.kernel.org/pub/scm/utils/dtc/dtc.git
+
+dtc-host_dir:
+	$(MKDIR) $(dir $(dtc-host_BUILDDIR))
+	cd $(dir $(dtc-host_BUILDDIR)) && \
+	  git clone $(PKGDIR)/dtc $(dtc-host_BUILDDIR)
+
+dtc-host_distclean:
+	$(RM) $(dtc-host_BUILDDIR)
+
+dtc-host: dtc-host_;
+dtc-host%:
+	if [ ! -d $(PKGDIR)/dtc ]; then \
+	  $(MAKE) dtc_download; \
+	fi
+	if [ ! -d $(dtc-host_BUILDDIR) ]; then \
+	  $(MAKE) dtc-host_dir; \
+	fi
+	$(dtc-host_MAKE) $(patsubst _%,%,$(@:dtc-host%=%))
+
+CLEAN += dtc-host
+
+#------------------------------------
+tool: $(PROJDIR)/tool/bin/dtc
+
+$(PROJDIR)/tool/bin/dtc:
+	$(MAKE) dtc_install
+
+#------------------------------------
+#
 fw-pi_download:
 	$(MKDIR) $(PKGDIR)
 	cd $(PKGDIR) && \
@@ -542,6 +587,8 @@ rootfs_boot: linux linux_modules busybox
 	$(RSYNC) $(PROJDIR)/prebuilt/rootfs-common/* $(rootfs_DIR)
 ifeq ("$(PLATFORM)","pi2")
 	$(RSYNC) $(PROJDIR)/prebuilt/rootfs-pi/* $(rootfs_DIR)
+else ifeq ("$(PLATFORM)","bb")
+	$(RSYNC) $(PROJDIR)/prebuilt/rootfs-bb/* $(rootfs_DIR)
 endif
 
 rootfs_openssl: $(addsuffix _install,openssl)
@@ -574,20 +621,24 @@ initramfs: $(BUILDDIR)/devlist linux
 	$(MAKE) linux_headers_install
 	$(MAKE) busybox
 	$(MAKE) DESTDIR=$(initramfs_DIR) so1 busybox_install
-	$(RSYNC) $(PROJDIR)/prebuilt/common/* $(initramfs_DIR)
-	$(RSYNC) $(PROJDIR)/prebuilt/initramfs/* $(initramfs_DIR)
+	$(RSYNC) $(PROJDIR)/prebuilt/initramfs-common/* $(initramfs_DIR)
+ifeq ("$(PLATFORM)","ffwd")
+	$(RSYNC) $(PROJDIR)/prebuilt/initramfs-ffwd/* $(initramfs_DIR)
+else ifneq ("$(strip $(filter bbb bb,$(PLATFORM)))","")
+	$(RSYNC) $(PROJDIR)/prebuilt/initramfs-bb/* $(initramfs_DIR)
+endif
 	$(MAKE) linux_initramfs_SRC="$(BUILDDIR)/devlist $(initramfs_DIR)" \
 	    DESTDIR=$(BUILDDIR) linux_initramfs
 ifeq ("$(PLATFORM)","ffwd")
 	mkimage -n 'bbq2 initramfs' -A mips -O linux -T ramdisk -a 0x80000000 -C lzma \
 	    -d $(BUILDDIR)/initramfs.cpio.gz $(BUILDDIR)/$@
-else ifneq ("$(strip $(filter pi2 bbb,$(PLATFORM)))","")
+else ifneq ("$(strip $(filter pi2 bbb bb,$(PLATFORM)))","")
 	mkimage -n 'bbq2 initramfs' -A arm -O linux -T ramdisk -C gzip \
 	    -d $(BUILDDIR)/initramfs.cpio.gz $(BUILDDIR)/$@
 endif
 
 boot_DIR?=$(BUILDDIR)/boot
-boot: linux_uImage
+boot: linux_uImage # linux_dtbs
 	$(MKDIR) $(boot_DIR)
 ifeq ("$(PLATFORM)","pi2")
 	$(MAKE) linux_bcm2836-rpi-2-b.dtb
@@ -596,15 +647,27 @@ ifeq ("$(PLATFORM)","pi2")
 	    $(boot_DIR)/kernel7.img
 	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/dts/bcm2836-rpi-2-b.dtb \
 	    $(boot_DIR)/bcm2709-rpi-2-b.dtb
+else ifeq ("$(PLATFORM)","bb")
+	$(MAKE) uboot linux_am335x-bone.dtb
+	$(RSYNC) $(uboot_BUILDDIR)/u-boot.img $(uboot_BUILDDIR)/MLO \
+	    $(boot_DIR)/
+	$(MAKE) initramfs
+	$(RSYNC) $(BUILDDIR)/initramfs $(boot_DIR)/
+	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/uImage \
+	    $(boot_DIR)/
+	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/dts/am335x-bone.dtb \
+	    $(boot_DIR)/dtb
+	mkimage -C none -A arm -T script -d $(PROJDIR)/cfg/bb-uboot.sh \
+	    $(boot_DIR)/boot.scr
 else ifeq ("$(PLATFORM)","bbb")
-	$(MAKE) am335x-boneblack.dtb
+	$(MAKE) uboot linux_am335x-boneblack.dtb
 	$(MAKE) initramfs
 	$(RSYNC) $(BUILDDIR)/initramfs $(boot_DIR)/
 	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/uImage \
 	    $(boot_DIR)/
 	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/dts/am335x-boneblack.dtb \
 	    $(boot_DIR)/dtb
-	mkimage -C none -A arm -T script -d $(PROJDIR)/cfg/bbb-boot.sh \
+	mkimage -C none -A arm -T script -d $(PROJDIR)/cfg/bb-uboot.sh \
 	    $(boot_DIR)/boot.scr
 endif
 

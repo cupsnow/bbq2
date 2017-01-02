@@ -1,0 +1,38 @@
+#!/bin/sh
+
+gotonewroot() {
+  ROOTDIR=/mnt/root
+  ROOTDEV=/dev/mmcblk0p2
+  
+  echo -n "Mount new root ..."
+  [ ! -d $ROOTDIR ] && mkdir -p $ROOTDIR
+  mount -t ext4 -o ro,noload $ROOTDEV $ROOTDIR || return
+  check_status
+  
+  for i in sys proc dev; do
+    mount --move /$i $ROOTDIR/$i || return
+  done
+
+  exec switch_root $ROOTDIR /sbin/init
+}
+
+. /etc/rc.d/init.d/functions
+
+PATH=/bin:/sbin:/usr/bin:/usr/sbin
+
+echo "Start in initramfs"
+
+[ -e /etc/rc.d/init.d/sysinit ] && . /etc/rc.d/init.d/sysinit
+
+gotonewroot
+
+echo "Pass through to terminal ..."
+cat <<'BannerEOF'
+ _     _            ___  _ 
+| |__ | |__   __ _ / _ \/ |
+| '_ \| '_ \ / _` | | | | |
+| |_) | |_) | (_| | |_| | |
+|_.__/|_.__/ \__, |\___/|_|
+                |_|        
+BannerEOF
+exec /bin/sh

@@ -1,0 +1,10 @@
+::sysinit:/etc/rc.d/startup
+
+# ::respawn:/bin/sh
+# ttyO0 for bb
+# ttyO2 for xm
+# ttyAMA0 for pi2
+::respawn:/sbin/getty -n -l /bin/sh -L 115200 ttyAMA0 vt100
+
+::ctrlaltdel:/sbin/reboot
+::shutdown:/etc/rc.d/shutdown

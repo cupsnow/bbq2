@@ -22,7 +22,7 @@ check_status
 [ ! -c /dev/null ] && mknod -m 0666 /dev/null c 1 3
 [ ! -c /dev/console ] && mknod /dev/console c 5 1
 
-# echo -n "Redirect standard I/O ..."
-#   IODEV=/dev/ttyO0
-#   [ -c /dev/$IODEV ] && exec <$IODEV >$IODEV 2>$IODEV
-# check_status
+echo -n "Redirect standard I/O ..."
+  IODEV=/dev/ttyO0
+  [ -c /dev/$IODEV ] && exec <$IODEV >$IODEV 2>$IODEV
+check_status

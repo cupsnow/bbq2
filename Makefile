@@ -341,6 +341,38 @@ CLEAN+=wt
 
 #------------------------------------
 #
+rfkill_BUILDDIR=$(BUILDDIR)/rfkill
+rfkill_MAKE=$(MAKE) PREFIX=/ DESTDIR=$(DESTDIR) CC=$(CC) \
+    -C $(rfkill_BUILDDIR)
+
+rfkill_download:
+	$(MKDIR) $(PKGDIR)
+	cd $(PKGDIR) && \
+	  wget -N https://www.kernel.org/pub/software/network/rfkill/rfkill-0.5.tar.xz
+
+rfkill_dir:
+	$(MKDIR) $(dir $(rfkill_BUILDDIR))
+	cd $(dir $(rfkill_BUILDDIR)) && \
+	  tar -Jxvf $(PKGDIR)/rfkill-0.5.tar.xz && \
+	  mv rfkill-0.5 $(rfkill_BUILDDIR)
+
+rfkill_distclean:
+	$(RM) $(rfkill_BUILDDIR)
+
+rfkill: rfkill_;
+rfkill%:
+	if [ ! -e $(PKGDIR)/rfkill-0.5.tar.xz ]; then \
+	  $(MAKE) rfkill_download; \
+	fi
+	if [ ! -d $(rfkill_BUILDDIR) ]; then \
+	  $(MAKE) rfkill_dir; \
+	fi
+	$(rfkill_MAKE) $(patsubst _%,%,$(@:rfkill%=%))
+
+CLEAN+=rfkill
+
+#------------------------------------
+#
 openssl_BUILDDIR=$(BUILDDIR)/openssl
 openssl_MAKE=$(MAKE) INSTALL_PREFIX=$(DESTDIR) \
     CFLAG="$(PLATFORM_CFLAGS) -I$(DESTDIR)/include -fPIC" \
@@ -543,7 +575,7 @@ CLEAN += dtc-host
 tool: $(PROJDIR)/tool/bin/dtc
 
 $(PROJDIR)/tool/bin/dtc:
-	$(MAKE) dtc_install
+	$(MAKE) dtc-host_install
 
 #------------------------------------
 #
@@ -601,12 +633,12 @@ rootfs_openssl: $(addsuffix _install,openssl)
 
 # dep openssl
 rootfs_wifi: $(addsuffix _install,wt libnl)
-	$(MAKE) $(addsuffix _install,ws hostapd)
+	$(MAKE) $(addsuffix _install,ws hostapd rfkill)
 	$(MAKE) SRCFILE="libiw.so{,.*}" \
 	    SRCFILE+="libnl-*.so{,.*}" \
 	    SRCDIR=$(DESTDIR)/lib DESTDIR=$(rootfs_DIR)/lib dist-cp
 	$(MAKE) SRCFILE="ifrename iwconfig iwevent iwgetid iwlist iwpriv iwspy" \
-	    SRCFILE+="nl-* wpa_* hostapd{,_*}" \
+	    SRCFILE+="nl-* wpa_* hostapd{,_*} rfkill" \
 	    SRCDIR=$(DESTDIR)/sbin DESTDIR=$(rootfs_DIR)/sbin dist-cp	
 	$(MAKE) SRCFILE="libnl" \
 	    SRCDIR=$(DESTDIR)/etc DESTDIR=$(rootfs_DIR)/etc dist-cp	

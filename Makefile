@@ -262,6 +262,80 @@ busybox%:
 
 CLEAN+=busybox
 
+
+#------------------------------------
+# 
+libcap_BUILDDIR = $(BUILDDIR)/libcap
+# CFLAGS="$(PLATFORM_CFLAGS) -I$(DESTDIR)/include -fPIC" \
+# LDFLAGS="$(PLATFORM_LDFLAGS) -L$(DESTDIR)/lib" \
+# BUILD_CFLAGS=""
+
+libcap_MAKE = $(MAKE) CC=$(CC) BUILD_CC=gcc AR=$(AR) RANLIB=$(RANLIB) \
+    prefix=/ lib=lib RAISE_SETFCAP=no PAM_CAP=no \
+    DESTDIR=$(DESTDIR) -C $(libcap_BUILDDIR)
+
+libcap_download:
+	$(MKDIR) $(PKGDIR)
+	git clone git://git.kernel.org/pub/scm/linux/kernel/git/morgan/libcap.git $(PKGDIR)/libcap
+
+libcap_makefile:
+	$(MKDIR) $(dir $(libcap_BUILDDIR))
+	cd $(dir $(libcap_BUILDDIR)) && git clone $(PKGDIR)/libcap $(libcap_BUILDDIR)
+
+libcap_distclean:
+	$(RM) $(libcap_BUILDDIR)
+
+libcap: libcap_;
+libcap%:
+	if [ ! -d $(PKGDIR)/libcap ]; then \
+	  $(MAKE) libcap_download; \
+	fi
+	if [ ! -f $(libcap_BUILDDIR)/Makefile ]; then \
+	  $(MAKE) libcap_makefile; \
+	fi
+	$(libcap_MAKE) $(patsubst _%,%,$(@:libcap%=%))
+
+CLEAN += libcap
+
+#------------------------------------
+# dep: libcap
+#
+coreutils_BUILDDIR=$(BUILDDIR)/coreutils
+coreutils_MAKE=$(MAKE) DESTDIR=$(DESTDIR) -C $(coreutils_BUILDDIR)
+
+coreutils_download:
+	$(MKDIR) $(PKGDIR)
+	cd $(PKGDIR) && \
+	  wget -N http://ftp.gnu.org/gnu/coreutils/coreutils-8.26.tar.xz && \
+	  tar -Jxvf $(PKGDIR)/coreutils-8.26.tar.xz
+
+coreutils_distclean:
+	$(RM) $(coreutils_BUILDDIR)
+
+coreutils_makefile:
+	$(MKDIR) $(coreutils_BUILDDIR)
+	cd $(coreutils_BUILDDIR) && $(PKGCONFIG_ENV) $(PKGDIR)/coreutils-8.26/configure \
+	    --prefix= --host=`$(CC) -dumpmachine` \
+	    CFLAGS="$(PLATFORM_CFLAGS) -I$(DESTDIR)/include" \
+	    LDFLAGS="$(PLATFORM_LDFLAGS) -L$(DESTDIR)/lib"
+
+coreutils_clean:
+	if [ -f $(coreutils_BUILDDIR)/Makefile ]; then \
+	  $(coreutils_MAKE) $(patsubst _%,%,$(@:coreutils%=%))
+	fi
+
+coreutils: coreutils_;
+coreutils%:
+	if [ ! -d $(PKGDIR)/coreutils-8.26 ]; then \
+	  $(MAKE) coreutils_download; \
+	fi
+	if [ ! -f $(coreutils_BUILDDIR)/Makefile ]; then \
+	  $(MAKE) coreutils_makefile; \
+	fi
+	$(coreutils_MAKE) $(patsubst _%,%,$(@:coreutils%=%))
+
+CLEAN += coreutils
+
 #------------------------------------
 #
 zlib_BUILDDIR=$(BUILDDIR)/zlib

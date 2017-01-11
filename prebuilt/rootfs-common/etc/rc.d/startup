@@ -23,7 +23,7 @@ for i in /var/run/dbus; do
   [ ! -d $i ] && mkdir -p $i
 done
 
-echo -n "Setting hostname ..." 
+echo -n "Setting hostname ..."
   [ -f /etc/hostname ] && hostname -F /etc/hostname || hostname bbqLinux
 check_status
 
@@ -40,17 +40,18 @@ echo -n "Loading modules ..."
 check_status
 
 echo "Running start scripts."
-  for i in /etc/rc.d/start/*; do
-    if [ -x $i ]; then
-      $i start
-    fi
-  done
+  ls -1 /etc/rc.d/start/* | \
+    while read i; do
+      if [ -x $i ]; then
+        $i start
+      fi
+    done
 
 cat <<'BannerEOF'
- _     _            ___  _ 
+ _     _            ___  _
 | |__ | |__   __ _ / _ \/ |
 | '_ \| '_ \ / _` | | | | |
 | |_) | |_) | (_| | |_| | |
 |_.__/|_.__/ \__, |\___/|_|
-                |_|        
+                |_|
 BannerEOF

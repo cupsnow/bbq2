@@ -1,0 +1,24 @@
+#!/bin/sh
+
+. /etc/rc.d/init.d/functions
+
+echo
+echo "start network"
+echo
+
+case "$1" in
+start)
+  wifi_mod.sh kill
+  wifi_mod.sh sta
+  udhcpc -i wlan0 -q&
+  ;;
+stop)
+  wifi_mod.sh kill
+  ;;
+restart)
+  ;;
+*)
+  echo "Usage: $0 {start|stop|restart}"
+  exit 1
+esac
+

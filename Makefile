@@ -536,6 +536,43 @@ libnl%:
 CLEAN += libnl
 
 #------------------------------------
+# dep: libnl3
+# $(info iw ... $(PKG_CONFIG) --cflags $(NLLIBNAME): $(CFLAGS))
+# $(info iw ... $(PKG_CONFIG) --libs $(NLLIBNAME): $(LIBS))
+#    CFLAGS="$(PLATFORM_CFLAGS) -I$(DESTDIR)/include -fPIC" 
+#    LIBS="$(PLATFORM_LDFLAGS) -L$(DESTDIR)/lib" 
+#
+iw_BUILDDIR = $(BUILDDIR)/iw
+iw_MAKE = $(PKGCONFIG_ENV) $(MAKE) CC=$(CC) DESTDIR=$(DESTDIR) PREFIX=/ \
+    LDFLAGS="-L$(DESTDIR)/lib" -C $(iw_BUILDDIR)
+
+iw_download:
+	$(MKDIR) $(PKGDIR)
+	cd $(PKGDIR) && \
+	  wget -N https://www.kernel.org/pub/software/network/iw/iw-4.9.tar.xz
+
+iw_dir:
+	$(MKDIR) $(dir $(iw_BUILDDIR))
+	cd $(dir $(iw_BUILDDIR)) && \
+	  tar -Jxvf $(PKGDIR)/iw-4.9.tar.xz && \
+	  mv iw-4.9 $(iw_BUILDDIR)
+
+iw_distclean:
+	$(RM) $(iw_BUILDDIR)
+
+iw: iw_;
+iw%:
+	if [ ! -e $(PKGDIR)/iw-4.9.tar.xz ]; then \
+	  $(MAKE) iw_download; \
+	fi
+	if [ ! -d $(iw_BUILDDIR) ]; then \
+	  $(MAKE) iw_dir; \
+	fi
+	$(iw_MAKE) $(patsubst _%,%,$(@:iw%=%))
+
+CLEAN += iw
+
+#------------------------------------
 # dep: libnl3, openssl
 #
 ws_BUILDDIR = $(BUILDDIR)/wpasupplicant
@@ -707,7 +744,7 @@ rootfs_openssl: $(addsuffix _install,openssl)
 
 # dep openssl
 rootfs_wifi: $(addsuffix _install,wt libnl)
-	$(MAKE) $(addsuffix _install,ws hostapd rfkill)
+	$(MAKE) $(addsuffix _install,ws hostapd rfkill iw)
 	$(MAKE) SRCFILE="libiw.so{,.*}" \
 	    SRCFILE+="libnl-*.so{,.*}" \
 	    SRCDIR=$(DESTDIR)/lib DESTDIR=$(rootfs_DIR)/lib dist-cp

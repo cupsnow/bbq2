@@ -683,6 +683,47 @@ dtc-host%:
 CLEAN += dtc-host
 
 #------------------------------------
+#
+libmoss_BUILDDIR=$(BUILDDIR)/libmoss
+libmoss_MAKE=$(MAKE) DESTDIR=$(DESTDIR) -C $(libmoss_BUILDDIR)
+#libmoss_CFGPARAM_LIBEVENT=--with-libevent 
+
+libmoss_download:
+	$(MKDIR) $(PKGDIR)
+	git clone git@bitbucket.org:joelai/libmoss.git $(PKGDIR)/libmoss
+
+libmoss_distclean:
+	$(RM) $(libmoss_BUILDDIR)
+
+libmoss_configure:
+	cd $(PKGDIR)/libmoss && ./autogen.sh
+
+libmoss_makefile:
+	$(MKDIR) $(libmoss_BUILDDIR)
+	cd $(libmoss_BUILDDIR) && $(PKGDIR)/libmoss/configure --prefix= \
+	    --host=`$(CC) -dumpmachine` $(libmoss_CFGPARAM) \
+	    CFLAGS="$(PLATFORM_CFLAGS) -I$(DESTDIR)/include" \
+	    LDFLAGS="$(PLATFORM_LDFLAGS) -L$(DESTDIR)/lib"
+
+libmoss_clean:
+	if [ -e $(libmoss_BUILDDIR)/Makefile ]; then \
+	  $(libmoss_MAKE) $(patsubst _%,%,$(@:libmoss%=%))
+	fi
+
+libmoss: libmoss_;
+libmoss%:
+	if [ ! -d $(PKGDIR)/libmoss ]; then \
+	  $(MAKE) libmoss_download; \
+	fi
+	if [ ! -x $(PKGDIR)/libmoss/configure ]; then \
+	  $(MAKE) libmoss_configure; \
+	fi
+	if [ ! -e $(libmoss_BUILDDIR)/Makefile ]; then \
+	  $(MAKE) libmoss_makefile; \
+	fi
+	$(libmoss_MAKE) $(patsubst _%,%,$(@:libmoss%=%))
+
+#------------------------------------
 tool: $(PROJDIR)/tool/bin/dtc
 
 $(PROJDIR)/tool/bin/dtc:

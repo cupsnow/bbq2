@@ -14,8 +14,8 @@ install distclean clean:
 
 #------------------------------------
 #
-MOD:=hello
-$(MOD)_OBJ_C=hello.o
+MOD:=nl
+$(MOD)_OBJ_C=nl.o
 $(MOD)_OBJ=$($(MOD)_OBJ_C) $($(MOD)_OBJ_CPP)
 
 $(MOD): $(BUILDDIR)/test/$(MOD)/$(MOD);
@@ -30,4 +30,4 @@ $(MOD)_disclean $(MOD)_clean:
 $(MOD)_install: $(MOD)
 	$(INSTALL_STRIP) $(BUILDDIR)/test/$(MOD)/$(MOD) $(DESTDIR)/usr/bin/$(MOD)
 
-TGT+=hello
+TGT+=nl

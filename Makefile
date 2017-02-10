@@ -41,8 +41,8 @@ ifeq ("$(PLATFORM)","android")
 TOOLCHAIN_PATH=$(ANDROID_TOOLCHAIN_PATH)
 SYSROOT=$(ANDROID_TOOLCHAIN_SYSROOT)
 CROSS_COMPILE=$(ANDROID_CROSS_COMPILE)
-PLATFORM_CFLAGS=--sysroot=$(SYSROOT)
-PLATFORM_LDFLAGS=--sysroot=$(SYSROOT)
+PLATFORM_CFLAGS=--sysroot=$(SYSROOT) -fPIC -fPIE -pie
+PLATFORM_LDFLAGS=--sysroot=$(SYSROOT) -fPIC -fPIE -pie
 else ifeq ("$(PLATFORM)","ffwd")
 TOOLCHAIN_PATH=$(MIPS_TOOLCHAIN_PATH)
 SYSROOT=$(TOOLCHAIN_PATH)/$(shell PATH=$(PATH) $(CC) -dumpmachine)/libc
@@ -64,8 +64,9 @@ endif
 $(info Makefile ... ARM_TOOLCHAIN_PATH: $(ARM_TOOLCHAIN_PATH))
 $(info Makefile ... MIPS_TOOLCHAIN_PATH: $(MIPS_TOOLCHAIN_PATH))
 
-EXTRA_PATH=$(PROJDIR)/tool/bin $(ANDROID_NDK_PATH) $(TOOLCHAIN_PATH:%=%/bin) \
+EXTRA_PATH=$(PROJDIR)/tool/bin $(TOOLCHAIN_PATH:%=%/bin) \
     $(ANT_PATH:%=%/bin) $(GRADLE_PATH:%=%/bin)
+#EXTRA_PATH+=$(ANDROID_NDK_PATH) 
 export PATH:=$(subst $(SPACE),:,$(strip $(EXTRA_PATH)) $(PATH))
 
 $(info Makefile ... dumpmachine: $(shell bash -c "PATH=$(PATH) $(CC) -dumpmachine"))
@@ -722,6 +723,45 @@ libmoss%:
 	  $(MAKE) libmoss_makefile; \
 	fi
 	$(libmoss_MAKE) $(patsubst _%,%,$(@:libmoss%=%))
+
+#------------------------------------
+#
+spidermonkey_BUILDDIR=$(BUILDDIR)/spidermonkey
+spidermonkey_MAKE=$(MAKE) DESTDIR=$(DESTDIR) -C $(spidermonkey_BUILDDIR)
+#spidermonkey_CFGPARAM_LIBEVENT=--with-libevent 
+
+spidermonkey_download:;
+
+spidermonkey_distclean:
+	$(RM) $(spidermonkey_BUILDDIR)
+
+spidermonkey_configure:
+	cd $(PKGDIR)/gecko/js/src && autoconf2.13
+
+spidermonkey_makefile:
+	$(MKDIR) $(spidermonkey_BUILDDIR)
+	cd $(spidermonkey_BUILDDIR) && CC=$(CC) CXX=$(C++) HOST_CC=gcc HOST_CXX=g++ \
+	    $(PKGDIR)/gecko/js/src/configure --prefix= \
+	    --target=`$(CC) -dumpmachine` \
+	    --enable-debug --disable-optimize
+
+spidermonkey_clean:
+	if [ -e $(spidermonkey_BUILDDIR)/Makefile ]; then \
+	  $(spidermonkey_MAKE) $(patsubst _%,%,$(@:spidermonkey%=%))
+	fi
+
+spidermonkey: spidermonkey_;
+spidermonkey%:
+	if [ ! -d $(PKGDIR)/spidermonkey ]; then \
+	  $(MAKE) spidermonkey_download; \
+	fi
+	if [ ! -x $(PKGDIR)/spidermonkey/configure ]; then \
+	  $(MAKE) spidermonkey_configure; \
+	fi
+	if [ ! -e $(spidermonkey_BUILDDIR)/Makefile ]; then \
+	  $(MAKE) spidermonkey_makefile; \
+	fi
+	$(spidermonkey_MAKE) $(patsubst _%,%,$(@:spidermonkey%=%))
 
 #------------------------------------
 tool: $(PROJDIR)/tool/bin/dtc

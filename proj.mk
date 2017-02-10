@@ -1,41 +1,81 @@
+# $Id$
 #------------------------------------
-# PROJDIR=$(abspath ..)
-# PROJDIR=$(abspath $(call my-dir)/..)
-# PROJDIR?=$(abspath $(dir $(firstword $(wildcard $(addsuffix /proj.mk,. ../..)))))
+#export SHELL=/bin/bash
+#PROJDIR?=$(abspath $(dir $(firstword $(wildcard $(addsuffix /proj.mk,. .. ../..)))))
+#include $(PROJDIR)/proj.mk
+#-include $(firstword $(wildcard $(addsuffix /site.mk,. $($(PROJDIR)))))
+#
+#JAVA_HOME?=/usr/lib/jvm/java-8-openjdk-amd64
+#
+#ANDROID_SDK_PATH=$(abspath $(dir $(shell bash -c "type -P adb"))..)
+#ANDROID_NDK_PATH=$(abspath $(dir $(shell bash -c "type -P ndk-build")))
+#ANDROID_ABI?=armeabi
+#ANDROID_API?=23
+#
+#ANT_PATH=/home/joelai/07_sw/apache-ant
+#GRADLE_PATH=/home/joelai/07_sw/gradle
+#
+#ifeq ("$(ANDROID_ABI)","x86")
+#ANDROID_TOOLCHAIN_PATH=$(abspath $(dir $(lastword $(wildcard $(ANDROID_NDK_PATH)/*/*/*/linux-x86_64/bin/i686-linux-*-gcc)))..)
+#ANDROID_TOOLCHAIN_SYSROOT=$(ANDROID_NDK_PATH)/platforms/android-$(ANDROID_API)/arch-x86
+#else
+## armeabi
+#ANDROID_TOOLCHAIN_PATH=$(abspath $(dir $(lastword $(wildcard $(ANDROID_NDK_PATH)/*/*/*/linux-x86_64/bin/arm-linux-*-gcc)))..)
+#ANDROID_TOOLCHAIN_SYSROOT=$(ANDROID_NDK_PATH)/platforms/android-$(ANDROID_API)/arch-arm
+#endif
+#ANDROID_CROSS_COMPILE=$(patsubst %gcc,%,$(notdir $(wildcard $(ANDROID_TOOLCHAIN_PATH)/bin/*gcc)))
+#
+#ARM_TOOLCHAIN_PATH=$(abspath $(dir $(lastword $(wildcard $(PROJDIR)/tool/*/bin/arm-linux*-gcc)))..)
+#ARM_CROSS_COMPILE=$(patsubst %gcc,%,$(notdir $(wildcard $(ARM_TOOLCHAIN_PATH)/bin/*gcc)))
+#
+#MIPS_TOOLCHAIN_PATH=$(abspath $(dir $(lastword $(wildcard $(PROJDIR)/tool/*/bin/mips-linux*-gcc)))..)
+#MIPS_CROSS_COMPILE=$(patsubst %gcc,%,$(notdir $(wildcard $(MIPS_TOOLCHAIN_PATH)/bin/*gcc)))
+#
+#PKGCONFIG_ENV=PKG_CONFIG_SYSROOT_DIR=$(DESTDIR) \
+#    PKG_CONFIG_LIBDIR=$(DESTDIR)/lib/pkgconfig
+#
+## android pi2 bbb ffwd
+#PLATFORM?=pi2
+#
+#ifeq ("$(PLATFORM)","android")
+#TOOLCHAIN_PATH=$(ANDROID_TOOLCHAIN_PATH)
+#SYSROOT=$(ANDROID_TOOLCHAIN_SYSROOT)
+#CROSS_COMPILE=$(ANDROID_CROSS_COMPILE)
+#PLATFORM_CFLAGS=--sysroot=$(SYSROOT)
+#PLATFORM_LDFLAGS=--sysroot=$(SYSROOT)
+#else ifeq ("$(PLATFORM)","ffwd")
+#TOOLCHAIN_PATH=$(MIPS_TOOLCHAIN_PATH)
+#SYSROOT=$(TOOLCHAIN_PATH)/$(shell PATH=$(PATH) $(CC) -dumpmachine)/libc
+#CROSS_COMPILE=$(MIPS_CROSS_COMPILE)
+#PLATFORM_CFLAGS=--sysroot=$(SYSROOT) -mel -march=mips32r2 -Wa,-mips32r2
+#PLATFORM_LDFLAGS=--sysroot=$(SYSROOT)
+#else ifeq ("$(PLATFORM)","pi2")
+#TOOLCHAIN_PATH=$(ARM_TOOLCHAIN_PATH)
+#CROSS_COMPILE=$(ARM_CROSS_COMPILE)
+#PLATFORM_CFLAGS=-mcpu=cortex-a7 -mfpu=neon-vfpv4 -mfloat-abi=hard
+#PLATFORM_LDFLAGS=
+#else ifneq ("$(strip $(filter bbb bb,$(PLATFORM)))","")
+#TOOLCHAIN_PATH=$(ARM_TOOLCHAIN_PATH)
+#CROSS_COMPILE=$(ARM_CROSS_COMPILE)
+#PLATFORM_CFLAGS=-mcpu=cortex-a8 -mfpu=neon -mfloat-abi=hard
+#PLATFORM_LDFLAGS=
+#endif
+#
+#$(info Makefile ... ARM_TOOLCHAIN_PATH: $(ARM_TOOLCHAIN_PATH))
+#$(info Makefile ... MIPS_TOOLCHAIN_PATH: $(MIPS_TOOLCHAIN_PATH))
+#
+#EXTRA_PATH=$(PROJDIR)/tool/bin $(TOOLCHAIN_PATH:%=%/bin) \
+#    $(ANT_PATH:%=%/bin) $(GRADLE_PATH:%=%/bin)
+##EXTRA_PATH+=$(ANDROID_NDK_PATH) 
+#export PATH:=$(subst $(SPACE),:,$(strip $(EXTRA_PATH)) $(PATH))
+#
+#$(info Makefile ... dumpmachine: $(shell bash -c "PATH=$(PATH) $(CC) -dumpmachine"))
+#$(info Makefile ... SYSROOT: $(SYSROOT))
+#$(info Makefile ... PATH: $(PATH))
+#$(info Makefile ... PLATFORM_CFLAGS: $(PLATFORM_CFLAGS))
+#$(info Makefile ... PLATFORM_LDFLAGS: $(PLATFORM_LDFLAGS))
 
-# ADB_PATH=$(shell bash -c "type -P adb")
-# ifneq ("$(ADB_PATH)","")
-# SDK_PATH=$(abspath $(dir $(ADB_PATH))..)
-# else
-# SDK_PATH=/home/joelai/07_sw/android-sdk
-# endif
-# 
-# NDK_BUILD_PATH=$(shell bash -c "type -P ndk-build")
-# ifneq ("$(NDK_BUILD_PATH)","")
-# NDK_PATH=$(abspath $(dir $(NDK_BUILD_PATH)))
-# else
-# NDK_PATH=/home/joelai/07_sw/android-ndk
-# endif
-# 
-# ANDPROJ_TARGET=android-8
-#
-# CROSS_COMPILE_GCC=$(lastword $(wildcard $(NDK_PATH)/*/*/*/linux-x86_64/bin/arm-linux-*-gcc))
-# CROSS_COMPILE_PATH=$(abspath $(dir $(CROSS_COMPILE_GCC))..)
-# CROSS_COMPILE=$(patsubst %gcc,%,$(notdir $(CROSS_COMPILE_GCC)))
-# SYSROOT=$(NDK_PATH)/platforms/$(ANDPROJ_TARGET)/arch-arm
-# 
-# include $(PROJDIR:%=%/)/jni/proj.mk
-# 
-# EXTRA_PATH=$(NDK_PATH) $(CROSS_COMPILE_PATH)/bin
-# export PATH:=$(subst $(SPACE),:,$(EXTRA_PATH) $(PATH))
-# 
-# PKG_CONFIG_ENV=PKG_CONFIG=pkg-config PKG_CONFIG_SYSROOT_DIR=$(DESTDIR) PKG_CONFIG_LIBDIR=$(DESTDIR)/lib/pkgconfig
-#
-# PLATFORM=ANDROID
-# PLATFORM_CFLAGS=-isysroot $(SYSROOT) #-mfloat-abi=softfp -mfpu=neon
-# PLATFORM_LDFLAGS=--sysroot $(SYSROOT)
-# 
-# $(info Makefile ... PATH: $(PATH))
+#------------------------------------
 #
 PWD=$(abspath .)
 PROJDIR?=$(abspath .)

@@ -5,35 +5,6 @@ PROJDIR?=$(abspath $(dir $(firstword $(wildcard $(addsuffix /proj.mk,. .. ../..)
 include $(PROJDIR)/proj.mk
 -include $(firstword $(wildcard $(addsuffix /site.mk,. $($(PROJDIR)))))
 
-JAVA_HOME?=/usr/lib/jvm/java-8-openjdk-amd64
-
-ANDROID_SDK_PATH=$(abspath $(dir $(shell bash -c "type -P adb"))..)
-ANDROID_NDK_PATH=$(abspath $(dir $(shell bash -c "type -P ndk-build")))
-ANDROID_ABI?=armeabi
-ANDROID_API?=23
-
-ANT_PATH=/home/joelai/07_sw/apache-ant
-GRADLE_PATH=/home/joelai/07_sw/gradle
-
-ifeq ("$(ANDROID_ABI)","x86")
-ANDROID_TOOLCHAIN_PATH=$(abspath $(dir $(lastword $(wildcard $(ANDROID_NDK_PATH)/*/*/*/linux-x86_64/bin/i686-linux-*-gcc)))..)
-ANDROID_TOOLCHAIN_SYSROOT=$(ANDROID_NDK_PATH)/platforms/android-$(ANDROID_API)/arch-x86
-else
-# armeabi
-ANDROID_TOOLCHAIN_PATH=$(abspath $(dir $(lastword $(wildcard $(ANDROID_NDK_PATH)/*/*/*/linux-x86_64/bin/arm-linux-*-gcc)))..)
-ANDROID_TOOLCHAIN_SYSROOT=$(ANDROID_NDK_PATH)/platforms/android-$(ANDROID_API)/arch-arm
-endif
-ANDROID_CROSS_COMPILE=$(patsubst %gcc,%,$(notdir $(wildcard $(ANDROID_TOOLCHAIN_PATH)/bin/*gcc)))
-
-ARM_TOOLCHAIN_PATH=$(abspath $(dir $(lastword $(wildcard $(PROJDIR)/tool/*/bin/arm-linux*-gcc)))..)
-ARM_CROSS_COMPILE=$(patsubst %gcc,%,$(notdir $(wildcard $(ARM_TOOLCHAIN_PATH)/bin/*gcc)))
-
-MIPS_TOOLCHAIN_PATH=$(abspath $(dir $(lastword $(wildcard $(PROJDIR)/tool/*/bin/mips-linux*-gcc)))..)
-MIPS_CROSS_COMPILE=$(patsubst %gcc,%,$(notdir $(wildcard $(MIPS_TOOLCHAIN_PATH)/bin/*gcc)))
-
-PKGCONFIG_ENV=PKG_CONFIG_SYSROOT_DIR=$(DESTDIR) \
-    PKG_CONFIG_LIBDIR=$(DESTDIR)/lib/pkgconfig
-
 # android pi2 bbb ffwd
 PLATFORM?=pi2
 
@@ -41,8 +12,8 @@ ifeq ("$(PLATFORM)","android")
 TOOLCHAIN_PATH=$(ANDROID_TOOLCHAIN_PATH)
 SYSROOT=$(ANDROID_TOOLCHAIN_SYSROOT)
 CROSS_COMPILE=$(ANDROID_CROSS_COMPILE)
-PLATFORM_CFLAGS=--sysroot=$(SYSROOT) -fPIC -fPIE -pie
-PLATFORM_LDFLAGS=--sysroot=$(SYSROOT) -fPIC -fPIE -pie
+PLATFORM_CFLAGS=--sysroot=$(SYSROOT) -fPIC -fPIE -pie $(ANDROID_CXXCFLAGS)
+PLATFORM_LDFLAGS=--sysroot=$(SYSROOT) -fPIC -fPIE -pie $(ANDROID_CXXLDFLAGS)
 else ifeq ("$(PLATFORM)","ffwd")
 TOOLCHAIN_PATH=$(MIPS_TOOLCHAIN_PATH)
 SYSROOT=$(TOOLCHAIN_PATH)/$(shell PATH=$(PATH) $(CC) -dumpmachine)/libc
@@ -61,14 +32,13 @@ PLATFORM_CFLAGS=-mcpu=cortex-a8 -mfpu=neon -mfloat-abi=hard
 PLATFORM_LDFLAGS=
 endif
 
-$(info Makefile ... ARM_TOOLCHAIN_PATH: $(ARM_TOOLCHAIN_PATH))
-$(info Makefile ... MIPS_TOOLCHAIN_PATH: $(MIPS_TOOLCHAIN_PATH))
-
 EXTRA_PATH=$(PROJDIR)/tool/bin $(TOOLCHAIN_PATH:%=%/bin) \
     $(ANT_PATH:%=%/bin) $(GRADLE_PATH:%=%/bin)
 #EXTRA_PATH+=$(ANDROID_NDK_PATH) 
 export PATH:=$(subst $(SPACE),:,$(strip $(EXTRA_PATH)) $(PATH))
 
+$(info Makefile ... ARM_TOOLCHAIN_PATH: $(ARM_TOOLCHAIN_PATH))
+$(info Makefile ... MIPS_TOOLCHAIN_PATH: $(MIPS_TOOLCHAIN_PATH))
 $(info Makefile ... dumpmachine: $(shell bash -c "PATH=$(PATH) $(CC) -dumpmachine"))
 $(info Makefile ... SYSROOT: $(SYSROOT))
 $(info Makefile ... PATH: $(PATH))
@@ -723,6 +693,48 @@ libmoss%:
 	  $(MAKE) libmoss_makefile; \
 	fi
 	$(libmoss_MAKE) $(patsubst _%,%,$(@:libmoss%=%))
+
+#------------------------------------
+#
+libevent_BUILDDIR=$(BUILDDIR)/libevent
+libevent_MAKE=$(MAKE) DESTDIR=$(DESTDIR) -C $(libevent_BUILDDIR)
+#libevent_CFGPARAM_LIBEVENT=--with-libevent 
+
+libevent_download:
+	$(MKDIR) $(PKGDIR)
+	git clone https://github.com/libevent/libevent $(PKGDIR)/libevent
+
+libevent_distclean:
+	$(RM) $(libevent_BUILDDIR)
+
+libevent_configure:
+	cd $(PKGDIR)/libevent && ./autogen.sh
+
+libevent_makefile:
+	$(MKDIR) $(libevent_BUILDDIR)
+	cd $(libevent_BUILDDIR) && $(PKGDIR)/libevent/configure --prefix= \
+	    --disable-openssl --disable-libevent-regress --disable-samples \
+	    --host=`$(CC) -dumpmachine` $(libevent_CFGPARAM) \
+	    CFLAGS="$(PLATFORM_CFLAGS) -I$(DESTDIR)/include" \
+	    LDFLAGS="$(PLATFORM_LDFLAGS) -L$(DESTDIR)/lib"
+
+libevent_clean:
+	if [ -e $(libevent_BUILDDIR)/Makefile ]; then \
+	  $(libevent_MAKE) $(patsubst _%,%,$(@:libevent%=%))
+	fi
+
+libevent: libevent_;
+libevent%:
+	if [ ! -d $(PKGDIR)/libevent ]; then \
+	  $(MAKE) libevent_download; \
+	fi
+	if [ ! -x $(PKGDIR)/libevent/configure ]; then \
+	  $(MAKE) libevent_configure; \
+	fi
+	if [ ! -e $(libevent_BUILDDIR)/Makefile ]; then \
+	  $(MAKE) libevent_makefile; \
+	fi
+	$(libevent_MAKE) $(patsubst _%,%,$(@:libevent%=%))
 
 #------------------------------------
 #

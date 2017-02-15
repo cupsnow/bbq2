@@ -5,35 +5,6 @@
 #include $(PROJDIR)/proj.mk
 #-include $(firstword $(wildcard $(addsuffix /site.mk,. $($(PROJDIR)))))
 #
-#JAVA_HOME?=/usr/lib/jvm/java-8-openjdk-amd64
-#
-#ANDROID_SDK_PATH=$(abspath $(dir $(shell bash -c "type -P adb"))..)
-#ANDROID_NDK_PATH=$(abspath $(dir $(shell bash -c "type -P ndk-build")))
-#ANDROID_ABI?=armeabi
-#ANDROID_API?=23
-#
-#ANT_PATH=/home/joelai/07_sw/apache-ant
-#GRADLE_PATH=/home/joelai/07_sw/gradle
-#
-#ifeq ("$(ANDROID_ABI)","x86")
-#ANDROID_TOOLCHAIN_PATH=$(abspath $(dir $(lastword $(wildcard $(ANDROID_NDK_PATH)/*/*/*/linux-x86_64/bin/i686-linux-*-gcc)))..)
-#ANDROID_TOOLCHAIN_SYSROOT=$(ANDROID_NDK_PATH)/platforms/android-$(ANDROID_API)/arch-x86
-#else
-## armeabi
-#ANDROID_TOOLCHAIN_PATH=$(abspath $(dir $(lastword $(wildcard $(ANDROID_NDK_PATH)/*/*/*/linux-x86_64/bin/arm-linux-*-gcc)))..)
-#ANDROID_TOOLCHAIN_SYSROOT=$(ANDROID_NDK_PATH)/platforms/android-$(ANDROID_API)/arch-arm
-#endif
-#ANDROID_CROSS_COMPILE=$(patsubst %gcc,%,$(notdir $(wildcard $(ANDROID_TOOLCHAIN_PATH)/bin/*gcc)))
-#
-#ARM_TOOLCHAIN_PATH=$(abspath $(dir $(lastword $(wildcard $(PROJDIR)/tool/*/bin/arm-linux*-gcc)))..)
-#ARM_CROSS_COMPILE=$(patsubst %gcc,%,$(notdir $(wildcard $(ARM_TOOLCHAIN_PATH)/bin/*gcc)))
-#
-#MIPS_TOOLCHAIN_PATH=$(abspath $(dir $(lastword $(wildcard $(PROJDIR)/tool/*/bin/mips-linux*-gcc)))..)
-#MIPS_CROSS_COMPILE=$(patsubst %gcc,%,$(notdir $(wildcard $(MIPS_TOOLCHAIN_PATH)/bin/*gcc)))
-#
-#PKGCONFIG_ENV=PKG_CONFIG_SYSROOT_DIR=$(DESTDIR) \
-#    PKG_CONFIG_LIBDIR=$(DESTDIR)/lib/pkgconfig
-#
 ## android pi2 bbb ffwd
 #PLATFORM?=pi2
 #
@@ -61,14 +32,12 @@
 #PLATFORM_LDFLAGS=
 #endif
 #
-#$(info Makefile ... ARM_TOOLCHAIN_PATH: $(ARM_TOOLCHAIN_PATH))
-#$(info Makefile ... MIPS_TOOLCHAIN_PATH: $(MIPS_TOOLCHAIN_PATH))
-#
-#EXTRA_PATH=$(PROJDIR)/tool/bin $(TOOLCHAIN_PATH:%=%/bin) \
+#EXTRA_PATH=$(PROJDIR)/tool/bin $(TOOLCHAIN_PATH:%=%/bin) $(ANDROID_NDK_PATH) \
 #    $(ANT_PATH:%=%/bin) $(GRADLE_PATH:%=%/bin)
-##EXTRA_PATH+=$(ANDROID_NDK_PATH) 
 #export PATH:=$(subst $(SPACE),:,$(strip $(EXTRA_PATH)) $(PATH))
 #
+#$(info Makefile ... ARM_TOOLCHAIN_PATH: $(ARM_TOOLCHAIN_PATH))
+#$(info Makefile ... MIPS_TOOLCHAIN_PATH: $(MIPS_TOOLCHAIN_PATH))
 #$(info Makefile ... dumpmachine: $(shell bash -c "PATH=$(PATH) $(CC) -dumpmachine"))
 #$(info Makefile ... SYSROOT: $(SYSROOT))
 #$(info Makefile ... PATH: $(PATH))
@@ -87,6 +56,43 @@ BUILDDIR?=$(BUILDROOT)/build
 EMPTY =# empty
 SPACE=$(EMPTY) $(EMPTY)
 COMMA=,
+
+#------------------------------------
+#
+JAVA_HOME?=/usr/lib/jvm/java-8-openjdk-amd64
+ANT_PATH?=/home/joelai/07_sw/apache-ant
+GRADLE_PATH?=/home/joelai/07_sw/gradle
+
+ANDROID_SDK_PATH?=$(abspath $(dir $(shell bash -c "type -P adb"))..)
+ANDROID_NDK_PATH?=$(abspath $(dir $(shell bash -c "type -P ndk-build")))
+ANDROID_ABI?=armeabi
+ANDROID_API?=23
+
+ifeq ("$(ANDROID_ABI)","x86")
+ANDROID_TOOLCHAIN_PATH?=$(abspath $(dir $(lastword $(wildcard $(ANDROID_NDK_PATH)/*/*/*/linux-x86_64/bin/i686-linux-*-gcc)))..)
+ANDROID_TOOLCHAIN_SYSROOT?=$(ANDROID_NDK_PATH)/platforms/android-$(ANDROID_API)/arch-x86
+else
+# armeabi
+ANDROID_TOOLCHAIN_PATH?=$(abspath $(dir $(lastword $(wildcard $(ANDROID_NDK_PATH)/*/*/*/linux-x86_64/bin/arm-linux-*-gcc)))..)
+ANDROID_TOOLCHAIN_SYSROOT?=$(ANDROID_NDK_PATH)/platforms/android-$(ANDROID_API)/arch-arm
+endif
+ANDROID_CROSS_COMPILE?=$(patsubst %gcc,%,$(notdir $(wildcard $(ANDROID_TOOLCHAIN_PATH)/bin/*gcc)))
+# gnu-libstdc++
+#ANDROID_CXXDIR=$(abspath $(lastword $(wildcard $(ANDROID_NDK_PATH)/sources/cxx-stl/gnu-libstdc++/*)))
+#ANDROID_CXXCFLAGS=-I$(ANDROID_CXXDIR)/include -I$(ANDROID_CXXDIR)/libs/armeabi-v7a/include
+#ANDROID_CXXLDFLAGS=-L$(ANDROID_CXXDIR)/libs/armeabi -lgnustl_static
+# STLport
+ANDROID_CXXDIR=$(abspath $(ANDROID_NDK_PATH)/sources/cxx-stl/stlport)
+ANDROID_CXXCFLAGS=-I$(ANDROID_CXXDIR)/stlport
+ANDROID_CXXLDFLAGS=-L$(ANDROID_CXXDIR)/libs/armeabi -lstlport_static
+
+ARM_TOOLCHAIN_PATH?=$(abspath $(dir $(lastword $(wildcard $(PROJDIR)/tool/*/bin/arm-linux*-gcc)))..)
+ARM_CROSS_COMPILE?=$(patsubst %gcc,%,$(notdir $(wildcard $(ARM_TOOLCHAIN_PATH)/bin/*gcc)))
+
+MIPS_TOOLCHAIN_PATH?=$(abspath $(dir $(lastword $(wildcard $(PROJDIR)/tool/*/bin/mips-linux*-gcc)))..)
+MIPS_CROSS_COMPILE?=$(patsubst %gcc,%,$(notdir $(wildcard $(MIPS_TOOLCHAIN_PATH)/bin/*gcc)))
+
+PKGCONFIG_ENV?=PKG_CONFIG_SYSROOT_DIR=$(DESTDIR) PKG_CONFIG_LIBDIR=$(DESTDIR)/lib/pkgconfig
 
 #------------------------------------
 #

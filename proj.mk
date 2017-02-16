@@ -231,25 +231,20 @@ endef
 
 #------------------------------------
 #
-#$(ex2_OBJS): %.o : %.c
-#	$(CC) -c -o $@ $(CFLAGS) $<
-#	$(CC) -E $(call DEPFLAGS,$@) $(CFLAGS) $<
-#
-#-include $(addsuffix $(DEP),$(ex2_OBJS))
 define PROJ_COMPILE_C
-$$($(1)_OBJ_C): %.o : %.c
+$$(addprefix $$($(1)_BUILDDIR:%=%/),$$($(1)_OBJ_C)): $$($(1)_BUILDDIR:%=%/)%.o : %.c | $$($(1)_BUILDDIR)
 	$$(CC) -c -o $$@ $(or $($(1)_CFLAGS),$$(CFLAGS)) $$<
 	$$(CC) -E $$(call DEPFLAGS,$$@) $(or $($(1)_CFLAGS),$$(CFLAGS)) $$<
 
--include $$(addsuffix $$(DEP),$$($(1)_OBJ_C))
+-include $$(addprefix $$($(1)_BUILDDIR:%=%/),$$(addsuffix $$(DEP),$$($(1)_OBJ_C)))
 endef
 
 define PROJ_COMPILE_CPP
-$$($(1)_OBJ_CPP): %.o : %.cpp
+$$(addprefix $$($(1)_BUILDDIR:%=%/),$$($(1)_OBJ_CPP)): $$($(1)_BUILDDIR:%=%/)%.o : %.cpp | $$($(1)_BUILDDIR)
 	$$(C++) -c -o $$@ $(or $($(1)_CFLAGS),$$(CFLAGS)) $$<
 	$$(C++) -E $$(call DEPFLAGS,$$@) $(or $($(1)_CFLAGS),$$(CFLAGS)) $$<
 
--include $$(addsuffix $$(DEP),$$($(1)_OBJ_CPP))
+-include $$(addprefix $$($(1)_BUILDDIR:%=%/),$$(addsuffix $$(DEP),$$($(1)_OBJ_C)))
 endef
 
 #------------------------------------

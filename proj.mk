@@ -66,7 +66,7 @@ GRADLE_PATH?=/home/joelai/07_sw/gradle
 ANDROID_SDK_PATH?=$(abspath $(dir $(shell bash -c "type -P adb"))..)
 ANDROID_NDK_PATH?=$(abspath $(dir $(shell bash -c "type -P ndk-build")))
 ANDROID_ABI?=armeabi
-ANDROID_API?=23
+ANDROID_API?=19
 
 ifeq ("$(ANDROID_ABI)","x86")
 ANDROID_TOOLCHAIN_PATH?=$(abspath $(dir $(lastword $(wildcard $(ANDROID_NDK_PATH)/*/*/*/linux-x86_64/bin/i686-linux-*-gcc)))..)

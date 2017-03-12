@@ -401,6 +401,52 @@ CLEAN += avrdude
 
 #------------------------------------
 #
+json-c_BUILDDIR=$(BUILDDIR)/json-c
+json-c_MAKE=$(MAKE) DESTDIR=$(DESTDIR) -C $(json-c_BUILDDIR)
+
+json-c_download:
+	$(MKDIR) $(PKGDIR)
+	git clone https://github.com/json-c/json-c.git $(PKGDIR)/json-c
+
+json-c_patch:
+	cd $(PKGDIR)/json-c && \
+	  patch -c -p2 <$(PROJDIR)/ext/json-c.patch
+
+json-c_distclean:
+	$(RM) $(json-c_BUILDDIR)
+
+json-c_configure:
+	cd $(PKGDIR)/json-c && ./autogen.sh
+
+json-c_makefile:
+	$(MKDIR) $(json-c_BUILDDIR)
+	cd $(json-c_BUILDDIR) && $(PKGDIR)/json-c/configure --prefix= \
+	    --host=`$(CC) -dumpmachine` $(json-c_CFGPARAM) --with-pic \
+	    CFLAGS="$(PLATFORM_CFLAGS) -I$(DESTDIR)/include" \
+	    LDFLAGS="$(PLATFORM_LDFLAGS) -L$(DESTDIR)/lib"
+
+json-c_clean:
+	if [ -e $(json-c_BUILDDIR)/Makefile ]; then \
+	  $(json-c_MAKE) $(patsubst _%,%,$(@:json-c%=%)); \
+	fi
+
+json-c: json-c_;
+json-c%:
+	if [ ! -d $(PKGDIR)/json-c ]; then \
+	  $(MAKE) json-c_download; \
+	fi
+	if [ ! -x $(PKGDIR)/json-c/configure ]; then \
+	  $(MAKE) json-c_configure; \
+	fi
+	if [ ! -e $(json-c_BUILDDIR)/Makefile ]; then \
+	  $(MAKE) json-c_makefile; \
+	fi
+	$(json-c_MAKE) $(patsubst _%,%,$(@:json-c%=%))
+
+CLEAN+=json-c
+
+#------------------------------------
+#
 wt_BUILDDIR=$(BUILDDIR)/wireless-tools
 wt_MAKE=$(MAKE) PREFIX=$(DESTDIR) LDCONFIG=true CC=$(CC) AR=$(AR) RANLIB=$(RANLIB) \
     -C $(wt_BUILDDIR)

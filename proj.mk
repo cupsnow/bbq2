@@ -92,6 +92,9 @@ ARM_CROSS_COMPILE?=$(patsubst %gcc,%,$(notdir $(wildcard $(ARM_TOOLCHAIN_PATH)/b
 MIPS_TOOLCHAIN_PATH?=$(abspath $(dir $(lastword $(wildcard $(PROJDIR)/tool/*/bin/mips-linux*-gcc)))..)
 MIPS_CROSS_COMPILE?=$(patsubst %gcc,%,$(notdir $(wildcard $(MIPS_TOOLCHAIN_PATH)/bin/*gcc)))
 
+AVR_TOOLCHAIN_PATH?=$(abspath $(dir $(lastword $(wildcard $(PROJDIR)/tool/*/bin/avr-gcc)))..)
+AVR_CROSS_COMPILE?=$(patsubst %gcc,%,$(notdir $(wildcard $(AVR_TOOLCHAIN_PATH)/bin/*gcc)))
+
 PKGCONFIG_ENV?=PKG_CONFIG_SYSROOT_DIR=$(DESTDIR) PKG_CONFIG_LIBDIR=$(DESTDIR)/lib/pkgconfig
 
 #------------------------------------

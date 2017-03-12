@@ -7,6 +7,16 @@
 
 PATH=/bin:/sbin:/usr/bin:/usr/sbin
 
+run_start()
+{
+  ls -1 $1 | \
+    while read i; do
+      if [ -x $i ]; then
+        $i start
+      fi
+    done
+}
+
 echo -n "Remount root to writable ..."
   mount -o remount,rw /
 check_status
@@ -40,12 +50,7 @@ echo -n "Loading modules ..."
 check_status
 
 echo "Running start scripts."
-  ls -1 /etc/rc.d/start/* | \
-    while read i; do
-      if [ -x $i ]; then
-        $i start
-      fi
-    done
+ls -1 /etc/rc.d/start/* && run_start /etc/rc.d/start/*
 
 cat <<'BannerEOF'
  _     _            ___  _

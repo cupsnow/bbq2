@@ -30,6 +30,11 @@ TOOLCHAIN_PATH=$(ARM_TOOLCHAIN_PATH)
 CROSS_COMPILE=$(ARM_CROSS_COMPILE)
 PLATFORM_CFLAGS=-mcpu=cortex-a8 -mfpu=neon -mfloat-abi=hard
 PLATFORM_LDFLAGS=
+else ifneq ("$(strip $(filter avr,$(PLATFORM)))","")
+TOOLCHAIN_PATH=$(AVR_TOOLCHAIN_PATH)
+CROSS_COMPILE=$(AVR_CROSS_COMPILE)
+PLATFORM_CFLAGS=-mmcu=avr5
+PLATFORM_LDFLAGS=-mmcu=avr5
 endif
 
 EXTRA_PATH=$(PROJDIR)/tool/bin $(TOOLCHAIN_PATH:%=%/bin) \
@@ -85,7 +90,7 @@ uboot_distclean:
 
 uboot_makefile:
 	$(MKDIR) $(dir $(uboot_BUILDDIR))
-ifeq ("$(PLATFORM)","pi2")
+ifneq ("$(strip $(filter pi2,$(PLATFORM)))","")
 	$(uboot_MAKE) rpi_2_defconfig
 else ifeq ("$(PLATFORM)","bb")
 	$(uboot_MAKE) am335x_evm_defconfig
@@ -351,6 +356,48 @@ zlib%:
 	$(zlib_MAKE) $(patsubst _%,%,$(@:zlib%=%))
 
 CLEAN += zlib
+
+#------------------------------------
+#
+avrdude_BUILDDIR=$(BUILDDIR)/avrdude
+avrdude_MAKE=$(MAKE) DESTDIR=$(DESTDIR) -C $(avrdude_BUILDDIR)
+#avrdude_CFGPARAM_LIBEVENT=--with-libevent 
+
+avrdude_download:
+	$(MKDIR) $(PKGDIR) && cd $(PKGDIR) && \
+	  wget -N http://download.savannah.gnu.org/releases/avrdude/avrdude-6.3.tar.gz && \
+	  tar -zxvf avrdude-6.3.tar.gz
+
+avrdude_distclean:
+	$(RM) $(avrdude_BUILDDIR)
+
+avrdude_makefile:
+	$(MKDIR) $(avrdude_BUILDDIR)
+	cd $(avrdude_BUILDDIR) && $(PKGDIR)/avrdude-6.3/configure --prefix= \
+	    --host=`$(CC) -dumpmachine` $(avrdude_CFGPARAM) \
+	    --enable-linuxgpio=yes \
+	    CFLAGS="$(PLATFORM_CFLAGS) -I$(DESTDIR)/include" \
+	    LDFLAGS="$(PLATFORM_LDFLAGS) -L$(DESTDIR)/lib"
+
+avrdude_clean:
+	if [ -e $(avrdude_BUILDDIR)/Makefile ]; then \
+	  $(avrdude_MAKE) $(patsubst _%,%,$(@:avrdude%=%))
+	fi
+
+avrdude: avrdude_ ;
+avrdude%:
+	if [ ! -d $(PKGDIR)/avrdude-6.3 ]; then \
+	  $(MAKE) avrdude_download; \
+	fi
+	if [ ! -x $(PKGDIR)/avrdude-6.3/configure ]; then \
+	  $(MAKE) avrdude_configure; \
+	fi
+	if [ ! -e $(avrdude_BUILDDIR)/Makefile ]; then \
+	  $(MAKE) avrdude_makefile; \
+	fi
+	$(avrdude_MAKE) $(patsubst _%,%,$(@:avrdude%=%))
+
+CLEAN += avrdude
 
 #------------------------------------
 #
@@ -823,9 +870,17 @@ rootfs_boot: linux linux_modules busybox
 	$(RSYNC) $(PROJDIR)/prebuilt/rootfs-common/* $(rootfs_DIR)
 ifeq ("$(PLATFORM)","pi2")
 	$(RSYNC) $(PROJDIR)/prebuilt/rootfs-pi/* $(rootfs_DIR)
-else ifeq ("$(PLATFORM)","bb")
+else ifneq ("$(strip $(filter bbb bb,$(PLATFORM)))","")
 	$(RSYNC) $(PROJDIR)/prebuilt/rootfs-bb/* $(rootfs_DIR)
 endif
+
+rootfs_avrdude: $(addsuffix _install,avrdude)
+	$(MAKE) SRCFILE="libavrdude.so{,.*}" \
+	    SRCDIR=$(DESTDIR)/lib DESTDIR=$(rootfs_DIR)/lib dist-cp
+	$(MAKE) SRCFILE="avrdude" \
+	    SRCDIR=$(DESTDIR)/bin DESTDIR=$(rootfs_DIR)/bin dist-cp
+	$(MAKE) SRCFILE="avrdude.conf" \
+	    SRCDIR=$(DESTDIR)/etc DESTDIR=$(rootfs_DIR)/etc dist-cp
 
 rootfs_openssl: $(addsuffix _install,openssl)
 	$(MAKE) SRCFILE="engines libcrypto.so{,.*} libssl.so{,.*}" \
@@ -883,6 +938,15 @@ ifeq ("$(PLATFORM)","pi2")
 	    $(boot_DIR)/kernel7.img
 	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/dts/bcm2836-rpi-2-b.dtb \
 	    $(boot_DIR)/bcm2709-rpi-2-b.dtb
+	echo "for uboot"
+	$(MAKE) uboot
+	mkimage -C none -A arm -T script -d $(PROJDIR)/cfg/pi2-uboot.sh \
+	    $(boot_DIR)/boot.scr
+	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/dts/bcm2836-rpi-2-b.dtb \
+	    $(linux_BUILDDIR)/arch/arm/boot/zImage \
+	    $(boot_DIR)/
+	$(RSYNC) $(uboot_BUILDDIR)/u-boot.bin \
+	    $(boot_DIR)/kernel.img
 else ifeq ("$(PLATFORM)","bb")
 	$(MAKE) uboot linux_am335x-bone.dtb
 	$(RSYNC) $(uboot_BUILDDIR)/u-boot.img $(uboot_BUILDDIR)/MLO \
@@ -892,17 +956,19 @@ else ifeq ("$(PLATFORM)","bb")
 	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/uImage \
 	    $(boot_DIR)/
 	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/dts/am335x-bone.dtb \
-	    $(boot_DIR)/dtb
+	    $(boot_DIR)/beaglebone.dtb
 	mkimage -C none -A arm -T script -d $(PROJDIR)/cfg/bb-uboot.sh \
 	    $(boot_DIR)/boot.scr
 else ifeq ("$(PLATFORM)","bbb")
 	$(MAKE) uboot linux_am335x-boneblack.dtb
+	$(RSYNC) $(uboot_BUILDDIR)/u-boot.img $(uboot_BUILDDIR)/MLO \
+	    $(boot_DIR)/
 	$(MAKE) initramfs
 	$(RSYNC) $(BUILDDIR)/initramfs $(boot_DIR)/
 	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/uImage \
 	    $(boot_DIR)/
 	$(RSYNC) $(linux_BUILDDIR)/arch/arm/boot/dts/am335x-boneblack.dtb \
-	    $(boot_DIR)/dtb
+	    $(boot_DIR)/beaglebone.dtb
 	mkimage -C none -A arm -T script -d $(PROJDIR)/cfg/bb-uboot.sh \
 	    $(boot_DIR)/boot.scr
 endif
